@@ -1,0 +1,489 @@
+// VIP Investor Portal - Prisma Schema
+// Database: PostgreSQL (coinshares_app)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum Role {
+  ADMIN
+  CUSTOMER
+}
+
+enum AccountType {
+  CRYPTO // Deposits/withdrawals in crypto only
+  STOCK  // Deposits/withdrawals in fiat only
+}
+
+enum Language {
+  EN // English
+  DE // German
+  FR // French
+  ES // Spanish
+}
+
+enum KYCStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AssetType {
+  CRYPTO
+  STOCK
+}
+
+enum TradeType {
+  BUY
+  SELL
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+}
+
+enum TransactionMethod {
+  WIRE_TRANSFER   // Fiat only
+  ACH             // Fiat only
+  CRYPTO_TRANSFER // Crypto only
+  CARD            // Fiat only (optional)
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum KYCDocumentType {
+  GOVERNMENT_ID       // Passport or Driver's License
+  PROOF_OF_ADDRESS    // Utility bill, bank statement
+  WEALTH_STATEMENT    // Source of funds
+}
+
+enum KYCDocStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TicketCategory {
+  KYC
+  BILLING
+  TECHNICAL
+  GENERAL
+}
+
+enum ActionType {
+  USER_CREATED
+  USER_UPDATED
+  USER_DELETED
+  KYC_APPROVED
+  KYC_REJECTED
+  TRADE_ADDED
+  TRANSACTION_ADDED
+  TRANSACTION_UPDATED
+  PNL_ADJUSTED
+  SUPPORT_REPLY
+  SETTINGS_CHANGED
+  LOGIN
+  LOGOUT
+}
+
+enum NewsCategory {
+  CRYPTO
+  STOCKS
+  ECONOMY
+  GENERAL
+}
+
+// ============================================
+// MODELS
+// ============================================
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  role          Role      @default(CUSTOMER)
+
+  // Personal Information
+  firstName     String    @map("first_name")
+  lastName      String    @map("last_name")
+  phone         String?
+  address       String?
+  city          String?
+  country       String?
+  nationality   String?
+  timezone      String    @default("UTC")
+  language      Language  @default(EN)
+  profilePhotoUrl String? @map("profile_photo_url")
+
+  // Account Configuration
+  accountType   AccountType? @map("account_type")
+
+  // KYC Status
+  kycStatus     KYCStatus @default(PENDING) @map("kyc_status")
+  kycRejectionReason String? @map("kyc_rejection_reason")
+  kycApprovedAt DateTime? @map("kyc_approved_at")
+  kycApprovedBy String?   @map("kyc_approved_by")
+
+  // Notification Preferences
+  emailWeeklySummary      Boolean @default(true) @map("email_weekly_summary")
+  emailTradeAlerts        Boolean @default(true) @map("email_trade_alerts")
+  emailTransactionAlerts  Boolean @default(true) @map("email_transaction_alerts")
+  toastNotifications      Boolean @default(true) @map("toast_notifications")
+
+  // Account Status
+  isActive      Boolean   @default(true) @map("is_active")
+  emailVerified Boolean   @default(false) @map("email_verified")
+  lastLoginAt   DateTime? @map("last_login_at")
+
+  // Timestamps
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  portfolio         Portfolio?
+  trades            Trade[]
+  transactions      Transaction[]
+  kycDocuments      KYCDocument[]
+  supportTickets    SupportTicket[]
+  watchlistItems    WatchlistItem[]
+  activityLogs      ActivityLog[]
+
+  @@index([email])
+  @@index([role])
+  @@index([kycStatus])
+  @@map("users")
+}
+
+model Portfolio {
+  id                  String    @id @default(uuid())
+  userId              String    @unique @map("user_id")
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Current Values (in USD)
+  totalValue          Decimal   @default(0) @map("total_value") @db.Decimal(18, 2)
+  cryptoValue         Decimal   @default(0) @map("crypto_value") @db.Decimal(18, 2)
+  stockValue          Decimal   @default(0) @map("stock_value") @db.Decimal(18, 2)
+  cashValue           Decimal   @default(0) @map("cash_value") @db.Decimal(18, 2)
+
+  // Performance Metrics (in USD)
+  totalInvested       Decimal   @default(0) @map("total_invested") @db.Decimal(18, 2)
+  totalProfitLoss     Decimal   @default(0) @map("total_profit_loss") @db.Decimal(18, 2)
+
+  dailyPnl            Decimal   @default(0) @map("daily_pnl") @db.Decimal(18, 2)
+  dailyPnlPercent     Decimal   @default(0) @map("daily_pnl_percent") @db.Decimal(10, 4)
+
+  monthlyPnl          Decimal   @default(0) @map("monthly_pnl") @db.Decimal(18, 2)
+  monthlyPnlPercent   Decimal   @default(0) @map("monthly_pnl_percent") @db.Decimal(10, 4)
+
+  allTimePnl          Decimal   @default(0) @map("all_time_pnl") @db.Decimal(18, 2)
+  allTimePnlPercent   Decimal   @default(0) @map("all_time_pnl_percent") @db.Decimal(10, 4)
+
+  // Timestamps
+  lastUpdated         DateTime  @default(now()) @map("last_updated")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  holdings            Holding[]
+  portfolioSnapshots  PortfolioSnapshot[]
+
+  @@index([userId])
+  @@map("portfolios")
+}
+
+model Holding {
+  id                String      @id @default(uuid())
+  portfolioId       String      @map("portfolio_id")
+  portfolio         Portfolio   @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  // Asset Information
+  assetType         AssetType   @map("asset_type")
+  symbol            String
+  name              String
+  logoUrl           String?     @map("logo_url")
+
+  // Holdings Data
+  quantity          Decimal     @db.Decimal(18, 8)
+  averageBuyPrice   Decimal     @map("average_buy_price") @db.Decimal(18, 2)
+  currentPrice      Decimal     @map("current_price") @db.Decimal(18, 2)
+  totalValue        Decimal     @map("total_value") @db.Decimal(18, 2)
+
+  // Performance
+  profitLoss        Decimal     @map("profit_loss") @db.Decimal(18, 2)
+  profitLossPercent Decimal     @map("profit_loss_percent") @db.Decimal(10, 4)
+
+  // Timestamps
+  lastPriceUpdate   DateTime    @default(now()) @map("last_price_update")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  @@unique([portfolioId, symbol])
+  @@index([portfolioId])
+  @@index([symbol])
+  @@map("holdings")
+}
+
+model Trade {
+  id            String      @id @default(uuid())
+  userId        String      @map("user_id")
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Trade Details
+  tradeType     TradeType   @map("trade_type")
+  assetType     AssetType   @map("asset_type")
+  symbol        String
+  assetName     String      @map("asset_name")
+
+  quantity      Decimal     @db.Decimal(18, 8)
+  pricePerUnit  Decimal     @map("price_per_unit") @db.Decimal(18, 2)
+  totalValue    Decimal     @map("total_value") @db.Decimal(18, 2)
+
+  // Metadata
+  adminNote     String?     @map("admin_note")
+  executedBy    String?     @map("executed_by")
+
+  // Timestamps
+  executedAt    DateTime    @default(now()) @map("executed_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([symbol])
+  @@index([executedAt])
+  @@map("trades")
+}
+
+model Transaction {
+  id                String              @id @default(uuid())
+  userId            String              @map("user_id")
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Transaction Details
+  transactionType   TransactionType     @map("transaction_type")
+  amount            Decimal             @db.Decimal(18, 2)
+  currency          String
+
+  // Method (filtered by account_type)
+  method            TransactionMethod
+
+  // Status
+  status            TransactionStatus   @default(PENDING)
+
+  // Proof/Receipt
+  receiptUrl        String?             @map("receipt_url")
+  blockchainTxId    String?             @map("blockchain_tx_id")
+  bankReference     String?             @map("bank_reference")
+
+  // Metadata
+  adminNote         String?             @map("admin_note")
+  processedBy       String?             @map("processed_by")
+
+  // Timestamps
+  processedAt       DateTime?           @map("processed_at")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("transactions")
+}
+
+model KYCDocument {
+  id                String            @id @default(uuid())
+  userId            String            @map("user_id")
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Document Details
+  documentType      KYCDocumentType   @map("document_type")
+  fileUrl           String            @map("file_url")
+  fileName          String            @map("file_name")
+  fileSize          Int               @map("file_size")
+  mimeType          String            @map("mime_type")
+
+  // Review Status
+  status            KYCDocStatus      @default(PENDING)
+  rejectionReason   String?           @map("rejection_reason")
+  reviewedBy        String?           @map("reviewed_by")
+  reviewedAt        DateTime?         @map("reviewed_at")
+
+  // Timestamps
+  uploadedAt        DateTime          @default(now()) @map("uploaded_at")
+  createdAt         DateTime          @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([status])
+  @@map("kyc_documents")
+}
+
+model SupportTicket {
+  id            String              @id @default(uuid())
+  userId        String              @map("user_id")
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Ticket Details
+  subject       String
+  status        TicketStatus        @default(OPEN)
+  priority      TicketPriority      @default(NORMAL)
+  category      TicketCategory?
+
+  // Timestamps
+  lastReplyAt   DateTime?           @map("last_reply_at")
+  closedAt      DateTime?           @map("closed_at")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  // Relations
+  messages      SupportMessage[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("support_tickets")
+}
+
+model SupportMessage {
+  id              String            @id @default(uuid())
+  ticketId        String            @map("ticket_id")
+  ticket          SupportTicket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  // Message Details
+  senderId        String            @map("sender_id")
+  senderRole      Role              @map("sender_role")
+  message         String            @db.Text
+
+  // Attachments (optional)
+  attachmentUrl   String?           @map("attachment_url")
+  attachmentName  String?           @map("attachment_name")
+
+  // Timestamps
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  @@index([ticketId])
+  @@index([createdAt])
+  @@map("support_messages")
+}
+
+model WatchlistItem {
+  id            String      @id @default(uuid())
+  userId        String      @map("user_id")
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Asset Details
+  assetType     AssetType   @map("asset_type")
+  symbol        String
+  name          String
+  logoUrl       String?     @map("logo_url")
+
+  // Timestamps
+  addedAt       DateTime    @default(now()) @map("added_at")
+
+  @@unique([userId, symbol])
+  @@index([userId])
+  @@map("watchlist_items")
+}
+
+model ActivityLog {
+  id            String      @id @default(uuid())
+
+  // Actor Information
+  actorId       String?     @map("actor_id")
+  actor         User?       @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorRole     Role?       @map("actor_role")
+
+  // Action Details
+  actionType    ActionType  @map("action_type")
+  targetType    String      @map("target_type")
+  targetId      String?     @map("target_id")
+
+  // Context
+  description   String
+  metadata      Json?
+  ipAddress     String?     @map("ip_address")
+  userAgent     String?     @map("user_agent")
+
+  // Timestamps
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  @@index([actorId])
+  @@index([actionType])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+model PortfolioSnapshot {
+  id                String      @id @default(uuid())
+  portfolioId       String      @map("portfolio_id")
+  portfolio         Portfolio   @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  // Snapshot Values (in USD)
+  totalValue        Decimal     @map("total_value") @db.Decimal(18, 2)
+  cryptoValue       Decimal     @map("crypto_value") @db.Decimal(18, 2)
+  stockValue        Decimal     @map("stock_value") @db.Decimal(18, 2)
+  cashValue         Decimal     @map("cash_value") @db.Decimal(18, 2)
+
+  totalPnl          Decimal     @map("total_pnl") @db.Decimal(18, 2)
+  totalPnlPercent   Decimal     @map("total_pnl_percent") @db.Decimal(10, 4)
+
+  // Timestamp (daily at midnight UTC)
+  snapshotDate      DateTime    @map("snapshot_date") @db.Date
+  createdAt         DateTime    @default(now()) @map("created_at")
+
+  @@unique([portfolioId, snapshotDate])
+  @@index([portfolioId])
+  @@index([snapshotDate])
+  @@map("portfolio_snapshots")
+}
+
+model NewsCache {
+  id                String        @id @default(uuid())
+
+  // Article Details
+  title             String
+  description       String        @db.Text
+  url               String        @unique
+  source            String
+  category          NewsCategory
+
+  // Asset Relations
+  relatedSymbols    String[]      @map("related_symbols")
+
+  // Image
+  imageUrl          String?       @map("image_url")
+
+  // Timestamps
+  publishedAt       DateTime      @map("published_at")
+  cachedAt          DateTime      @default(now()) @map("cached_at")
+
+  @@index([category])
+  @@index([publishedAt])
+  @@map("news_cache")
+}
