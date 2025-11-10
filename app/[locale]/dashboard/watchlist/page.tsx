@@ -36,20 +36,31 @@ interface WatchlistAsset {
   isFavorite: boolean;
 }
 
-// Popular assets list for search/discovery
+// Top 20 popular assets - Stocks, Crypto, Commodities
 const POPULAR_ASSETS = [
+  // Top Stocks
   { symbol: "AAPL", name: "Apple Inc.", type: "STOCK" },
-  { symbol: "TSLA", name: "Tesla Motors, Inc.", type: "STOCK" },
-  { symbol: "GOOGL", name: "Alphabet Inc.", type: "STOCK" },
   { symbol: "MSFT", name: "Microsoft Corporation", type: "STOCK" },
+  { symbol: "GOOGL", name: "Alphabet Inc.", type: "STOCK" },
   { symbol: "AMZN", name: "Amazon.com Inc.", type: "STOCK" },
+  { symbol: "TSLA", name: "Tesla Motors, Inc.", type: "STOCK" },
+  { symbol: "NVDA", name: "NVIDIA Corporation", type: "STOCK" },
+  { symbol: "META", name: "Meta Platforms Inc.", type: "STOCK" },
+  { symbol: "NFLX", name: "Netflix Inc.", type: "STOCK" },
+  { symbol: "AMD", name: "Advanced Micro Devices", type: "STOCK" },
+  { symbol: "ORCL", name: "Oracle Corporation", type: "STOCK" },
+  // Top Cryptocurrencies
   { symbol: "BTC", name: "Bitcoin", type: "CRYPTO" },
   { symbol: "ETH", name: "Ethereum", type: "CRYPTO" },
   { symbol: "BNB", name: "Binance Coin", type: "CRYPTO" },
   { symbol: "SOL", name: "Solana", type: "CRYPTO" },
   { symbol: "XRP", name: "XRP", type: "CRYPTO" },
+  { symbol: "ADA", name: "Cardano", type: "CRYPTO" },
+  { symbol: "DOGE", name: "Dogecoin", type: "CRYPTO" },
+  // Commodities
   { symbol: "GOLD", name: "Gold (Non Expiry)", type: "COMMODITY" },
   { symbol: "OIL", name: "Oil (Non Expiry)", type: "COMMODITY" },
+  { symbol: "SILVER", name: "Silver", type: "COMMODITY" },
 ];
 
 export default function WatchlistPageNew() {
@@ -76,16 +87,30 @@ export default function WatchlistPageNew() {
 
   const fetchWatchlist = async () => {
     try {
+      // Fetch user's favorites from database
       const response = await fetch("/api/watchlist");
-      if (response.ok) {
-        const data = await response.json();
-        // Fetch enhanced data for each asset
-        const enhancedAssets = await Promise.all(
-          data.watchlist.map((item: any) => fetchAssetData(item))
-        );
-        setAssets(enhancedAssets);
-        setFilteredAssets(enhancedAssets);
-      }
+      const userFavorites = response.ok ? (await response.json()).watchlist : [];
+      const favoriteSymbols = new Set(userFavorites.map((item: any) => item.symbol));
+
+      // Combine popular assets with user favorites
+      const allAssets = POPULAR_ASSETS.map((asset) => ({
+        id: asset.symbol,
+        symbol: asset.symbol,
+        name: asset.name,
+        assetType: asset.type as "STOCK" | "CRYPTO" | "COMMODITY" | "CURRENCY",
+        isFavorite: favoriteSymbols.has(asset.symbol),
+        currentPrice: 0,
+        change: 0,
+        changePercent: 0,
+      }));
+
+      // Fetch price data for all assets
+      const enhancedAssets = await Promise.all(
+        allAssets.map((item) => fetchAssetData(item))
+      );
+
+      setAssets(enhancedAssets);
+      setFilteredAssets(enhancedAssets);
     } catch (error) {
       console.error("Failed to fetch watchlist:", error);
     } finally {
@@ -199,8 +224,31 @@ export default function WatchlistPageNew() {
       if (!asset) return;
 
       if (asset.isFavorite) {
-        await fetch(`/api/watchlist?symbol=${symbol}`, { method: "DELETE" });
-        setAssets(assets.filter((a) => a.symbol !== symbol));
+        // Remove from favorites
+        const response = await fetch(`/api/watchlist?symbol=${symbol}`, { method: "DELETE" });
+        if (response.ok) {
+          // Update local state
+          setAssets(assets.map((a) =>
+            a.symbol === symbol ? { ...a, isFavorite: false } : a
+          ));
+        }
+      } else {
+        // Add to favorites
+        const response = await fetch("/api/watchlist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            symbol: asset.symbol,
+            name: asset.name,
+            assetType: asset.assetType,
+          }),
+        });
+        if (response.ok) {
+          // Update local state
+          setAssets(assets.map((a) =>
+            a.symbol === symbol ? { ...a, isFavorite: true } : a
+          ));
+        }
       }
     } catch (error) {
       console.error("Failed to toggle favorite:", error);
@@ -467,9 +515,11 @@ export default function WatchlistPageNew() {
                             e.stopPropagation();
                             toggleFavorite(asset.symbol);
                           }}
-                          className="text-accent-gold hover:scale-110 transition-transform"
+                          className={`hover:scale-110 transition-transform ${
+                            asset.isFavorite ? "text-primary" : "text-text-secondary hover:text-primary"
+                          }`}
                         >
-                          <Star className="w-5 h-5 fill-current" />
+                          <Star className={`w-5 h-5 ${asset.isFavorite ? "fill-current" : ""}`} />
                         </button>
                       </td>
                     </tr>
@@ -507,24 +557,13 @@ export default function WatchlistPageNew() {
         {/* Empty State */}
         {filteredAssets.length === 0 && (
           <div className="bg-background-card border border-border rounded-lg p-12 text-center">
-            <Star className="w-16 h-16 text-text-secondary mx-auto mb-4" />
+            <Search className="w-16 h-16 text-text-secondary mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-text-primary mb-2">
               No Assets Found
             </h3>
-            <p className="text-text-secondary mb-6">
-              {searchQuery
-                ? "Try a different search term"
-                : "Add assets to your watchlist to get started"}
+            <p className="text-text-secondary">
+              Try a different search term or filter
             </p>
-            {!searchQuery && (
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors font-medium"
-              >
-                <Plus className="w-5 h-5" />
-                Add Asset
-              </button>
-            )}
           </div>
         )}
 
