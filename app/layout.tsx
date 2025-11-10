@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "@/components/ui/Toaster";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -15,15 +16,20 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
+  params,
 }: Readonly<{
-  children: React.Node;
+  children: React.ReactNode;
+  params: Promise<{ locale: string }>;
 }>) {
+  const { locale } = await params;
+
   return (
-    <html lang="en" className="dark">
+    <html lang={locale || 'en'} className="dark">
       <body className={`${inter.variable} antialiased`}>
         {children}
+        <Toaster />
       </body>
     </html>
   );

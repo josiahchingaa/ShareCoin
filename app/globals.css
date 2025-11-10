@@ -1,3 +1,12 @@
+/* Import Google Fonts - Inter */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* Import Design System */
+@import '../styles/design-system.css';
+
+/* Import Animations */
+@import '../styles/animations.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,9 +17,9 @@
   }
 
   body {
-    @apply bg-background-primary text-text-primary;
+    @apply bg-background-main text-text-primary;
     font-feature-settings: "rlig" 1, "calt" 1;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--font-family-primary);
   }
 
   /* Smooth scrolling */
@@ -50,6 +59,18 @@
 
   .text-gradient-gold {
     @apply bg-gradient-to-r from-accent-gold to-accent-goldAlt bg-clip-text text-transparent;
+  }
+
+  /* New blue gradient */
+  .text-gradient-blue {
+    background: var(--gradient-blue);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .bg-gradient-blue {
+    background: var(--gradient-blue);
   }
 
   /* Card hover effect */
