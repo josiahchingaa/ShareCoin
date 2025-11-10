@@ -39,28 +39,28 @@ interface WatchlistAsset {
 // Top 20 popular assets - Stocks, Crypto, Commodities
 const POPULAR_ASSETS = [
   // Top Stocks
-  { symbol: "AAPL", name: "Apple Inc.", type: "STOCK" },
-  { symbol: "MSFT", name: "Microsoft Corporation", type: "STOCK" },
-  { symbol: "GOOGL", name: "Alphabet Inc.", type: "STOCK" },
-  { symbol: "AMZN", name: "Amazon.com Inc.", type: "STOCK" },
-  { symbol: "TSLA", name: "Tesla Motors, Inc.", type: "STOCK" },
-  { symbol: "NVDA", name: "NVIDIA Corporation", type: "STOCK" },
-  { symbol: "META", name: "Meta Platforms Inc.", type: "STOCK" },
-  { symbol: "NFLX", name: "Netflix Inc.", type: "STOCK" },
-  { symbol: "AMD", name: "Advanced Micro Devices", type: "STOCK" },
-  { symbol: "ORCL", name: "Oracle Corporation", type: "STOCK" },
+  { symbol: "AAPL", name: "Apple Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/apple.com" },
+  { symbol: "MSFT", name: "Microsoft Corporation", type: "STOCK", logoUrl: "https://logo.clearbit.com/microsoft.com" },
+  { symbol: "GOOGL", name: "Alphabet Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/google.com" },
+  { symbol: "AMZN", name: "Amazon.com Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/amazon.com" },
+  { symbol: "TSLA", name: "Tesla Motors, Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/tesla.com" },
+  { symbol: "NVDA", name: "NVIDIA Corporation", type: "STOCK", logoUrl: "https://logo.clearbit.com/nvidia.com" },
+  { symbol: "META", name: "Meta Platforms Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/meta.com" },
+  { symbol: "NFLX", name: "Netflix Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/netflix.com" },
+  { symbol: "AMD", name: "Advanced Micro Devices", type: "STOCK", logoUrl: "https://logo.clearbit.com/amd.com" },
+  { symbol: "ORCL", name: "Oracle Corporation", type: "STOCK", logoUrl: "https://logo.clearbit.com/oracle.com" },
   // Top Cryptocurrencies
-  { symbol: "BTC", name: "Bitcoin", type: "CRYPTO" },
-  { symbol: "ETH", name: "Ethereum", type: "CRYPTO" },
-  { symbol: "BNB", name: "Binance Coin", type: "CRYPTO" },
-  { symbol: "SOL", name: "Solana", type: "CRYPTO" },
-  { symbol: "XRP", name: "XRP", type: "CRYPTO" },
-  { symbol: "ADA", name: "Cardano", type: "CRYPTO" },
-  { symbol: "DOGE", name: "Dogecoin", type: "CRYPTO" },
+  { symbol: "BTC", name: "Bitcoin", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/btc@2x.png" },
+  { symbol: "ETH", name: "Ethereum", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/eth@2x.png" },
+  { symbol: "BNB", name: "Binance Coin", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/bnb@2x.png" },
+  { symbol: "SOL", name: "Solana", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/sol@2x.png" },
+  { symbol: "XRP", name: "XRP", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/xrp@2x.png" },
+  { symbol: "ADA", name: "Cardano", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/ada@2x.png" },
+  { symbol: "DOGE", name: "Dogecoin", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/doge@2x.png" },
   // Commodities
-  { symbol: "GOLD", name: "Gold (Non Expiry)", type: "COMMODITY" },
-  { symbol: "OIL", name: "Oil (Non Expiry)", type: "COMMODITY" },
-  { symbol: "SILVER", name: "Silver", type: "COMMODITY" },
+  { symbol: "GOLD", name: "Gold (Non Expiry)", type: "COMMODITY", logoUrl: "https://img.icons8.com/color/96/000000/gold-bars.png" },
+  { symbol: "OIL", name: "Oil (Non Expiry)", type: "COMMODITY", logoUrl: "https://img.icons8.com/color/96/000000/oil-industry.png" },
+  { symbol: "SILVER", name: "Silver", type: "COMMODITY", logoUrl: "https://img.icons8.com/fluency/96/000000/silver-bars.png" },
 ];
 
 export default function WatchlistPageNew() {
@@ -98,6 +98,7 @@ export default function WatchlistPageNew() {
         symbol: asset.symbol,
         name: asset.name,
         assetType: asset.type as "STOCK" | "CRYPTO" | "COMMODITY" | "CURRENCY",
+        logoUrl: asset.logoUrl,
         isFavorite: favoriteSymbols.has(asset.symbol),
         currentPrice: 0,
         change: 0,
@@ -137,13 +138,14 @@ export default function WatchlistPageNew() {
           symbol: item.symbol,
           name: priceData.name,
           assetType: item.assetType,
+          logoUrl: item.logoUrl,
           currentPrice: priceData.price,
           change: priceData.change,
           changePercent: priceData.changePercent,
           sparklineData: sparkline,
           sentiment,
           sentimentLabel: sentiment >= 80 ? "Buying" : sentiment >= 50 ? "Neutral" : "Selling",
-          isFavorite: true,
+          isFavorite: item.isFavorite,
           // Mock 52-week range
           weekRange52Low: priceData.price * 0.7,
           weekRange52High: priceData.price * 1.3,
@@ -158,10 +160,11 @@ export default function WatchlistPageNew() {
       symbol: item.symbol,
       name: item.name,
       assetType: item.assetType,
+      logoUrl: item.logoUrl,
       currentPrice: 0,
       change: 0,
       changePercent: 0,
-      isFavorite: true,
+      isFavorite: item.isFavorite,
     };
   };
 
@@ -401,10 +404,23 @@ export default function WatchlistPageNew() {
                       {/* Asset Name & Logo */}
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                            <span className="text-primary font-bold text-sm">
-                              {asset.symbol.substring(0, 2)}
-                            </span>
+                          <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {asset.logoUrl ? (
+                              <img
+                                src={asset.logoUrl}
+                                alt={asset.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  // Fallback to initials if image fails to load
+                                  e.currentTarget.style.display = "none";
+                                  e.currentTarget.parentElement!.innerHTML = `<span class="text-primary font-bold text-sm">${asset.symbol.substring(0, 2)}</span>`;
+                                }}
+                              />
+                            ) : (
+                              <span className="text-primary font-bold text-sm">
+                                {asset.symbol.substring(0, 2)}
+                              </span>
+                            )}
                           </div>
                           <div className="min-w-0">
                             <div className="font-semibold text-text-primary">
