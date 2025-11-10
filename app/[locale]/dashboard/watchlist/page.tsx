@@ -4,39 +4,66 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import Sparkline from "@/components/ui/Sparkline";
 import {
   Star,
   TrendingUp,
   TrendingDown,
-  Plus,
-  X,
   Search,
   RefreshCw,
+  Plus,
+  Grid3x3,
+  List,
+  ChevronDown,
 } from "lucide-react";
 
-interface WatchlistItem {
+interface WatchlistAsset {
   id: string;
   symbol: string;
   name: string;
-  assetType: "STOCK" | "CRYPTO";
+  assetType: "STOCK" | "CRYPTO" | "COMMODITY" | "CURRENCY";
   logoUrl?: string;
-  addedAt: string;
-  currentPrice?: number;
-  change?: number;
-  changePercent?: number;
+  currentPrice: number;
+  change: number;
+  changePercent: number;
+  shortPrice?: number;
+  buyPrice?: number;
+  weekRange52Low?: number;
+  weekRange52High?: number;
+  sentiment?: number; // 0-100 percentage
+  sentimentLabel?: "Buying" | "Selling" | "Neutral";
+  sparklineData?: number[];
+  isFavorite: boolean;
 }
 
-export default function WatchlistPage() {
+// Popular assets list for search/discovery
+const POPULAR_ASSETS = [
+  { symbol: "AAPL", name: "Apple Inc.", type: "STOCK" },
+  { symbol: "TSLA", name: "Tesla Motors, Inc.", type: "STOCK" },
+  { symbol: "GOOGL", name: "Alphabet Inc.", type: "STOCK" },
+  { symbol: "MSFT", name: "Microsoft Corporation", type: "STOCK" },
+  { symbol: "AMZN", name: "Amazon.com Inc.", type: "STOCK" },
+  { symbol: "BTC", name: "Bitcoin", type: "CRYPTO" },
+  { symbol: "ETH", name: "Ethereum", type: "CRYPTO" },
+  { symbol: "BNB", name: "Binance Coin", type: "CRYPTO" },
+  { symbol: "SOL", name: "Solana", type: "CRYPTO" },
+  { symbol: "XRP", name: "XRP", type: "CRYPTO" },
+  { symbol: "GOLD", name: "Gold (Non Expiry)", type: "COMMODITY" },
+  { symbol: "OIL", name: "Oil (Non Expiry)", type: "COMMODITY" },
+];
+
+export default function WatchlistPageNew() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
+  const [assets, setAssets] = useState<WatchlistAsset[]>([]);
+  const [filteredAssets, setFilteredAssets] = useState<WatchlistAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<string>("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const [showAddModal, setShowAddModal] = useState(false);
-  const [searchSymbol, setSearchSymbol] = useState("");
-  const [searchResults, setSearchResults] = useState<any>(null);
-  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -52,9 +79,12 @@ export default function WatchlistPage() {
       const response = await fetch("/api/watchlist");
       if (response.ok) {
         const data = await response.json();
-        setWatchlist(data.watchlist);
-        // Fetch current prices for all items
-        await fetchPricesForWatchlist(data.watchlist);
+        // Fetch enhanced data for each asset
+        const enhancedAssets = await Promise.all(
+          data.watchlist.map((item: any) => fetchAssetData(item))
+        );
+        setAssets(enhancedAssets);
+        setFilteredAssets(enhancedAssets);
       }
     } catch (error) {
       console.error("Failed to fetch watchlist:", error);
@@ -63,34 +93,70 @@ export default function WatchlistPage() {
     }
   };
 
-  const fetchPricesForWatchlist = async (items: WatchlistItem[]) => {
-    const updatedItems = await Promise.all(
-      items.map(async (item) => {
-        try {
-          const response = await fetch(
-            `/api/prices?symbol=${item.symbol}&type=${item.assetType.toLowerCase()}`
-          );
-          if (response.ok) {
-            const priceData = await response.json();
-            return {
-              ...item,
-              currentPrice: priceData.price,
-              change: priceData.change,
-              changePercent: priceData.changePercent,
-            };
-          }
-        } catch (error) {
-          console.error(`Failed to fetch price for ${item.symbol}:`, error);
-        }
-        return item;
-      })
-    );
-    setWatchlist(updatedItems);
+  const fetchAssetData = async (item: any): Promise<WatchlistAsset> => {
+    try {
+      const response = await fetch(
+        `/api/prices?symbol=${item.symbol}&type=${item.assetType.toLowerCase()}`
+      );
+      if (response.ok) {
+        const priceData = await response.json();
+
+        // Generate mock sparkline data (7 days)
+        const sparkline = generateSparklineData(priceData.price, priceData.changePercent);
+
+        // Generate mock sentiment data
+        const sentiment = Math.floor(Math.random() * 30) + 70; // 70-100% for demo
+
+        return {
+          id: item.id,
+          symbol: item.symbol,
+          name: priceData.name,
+          assetType: item.assetType,
+          currentPrice: priceData.price,
+          change: priceData.change,
+          changePercent: priceData.changePercent,
+          sparklineData: sparkline,
+          sentiment,
+          sentimentLabel: sentiment >= 80 ? "Buying" : sentiment >= 50 ? "Neutral" : "Selling",
+          isFavorite: true,
+          // Mock 52-week range
+          weekRange52Low: priceData.price * 0.7,
+          weekRange52High: priceData.price * 1.3,
+        };
+      }
+    } catch (error) {
+      console.error(`Failed to fetch data for ${item.symbol}:`, error);
+    }
+
+    return {
+      id: item.id,
+      symbol: item.symbol,
+      name: item.name,
+      assetType: item.assetType,
+      currentPrice: 0,
+      change: 0,
+      changePercent: 0,
+      isFavorite: true,
+    };
+  };
+
+  const generateSparklineData = (price: number, changePercent: number): number[] => {
+    const data = [];
+    const days = 7;
+    const volatility = Math.abs(changePercent) / 100;
+
+    for (let i = 0; i < days; i++) {
+      const randomChange = (Math.random() - 0.5) * volatility;
+      const value = price * (1 + randomChange - (changePercent / 100) * ((days - i) / days));
+      data.push(value);
+    }
+
+    return data;
   };
 
   const refreshPrices = async () => {
     setRefreshing(true);
-    await fetchPricesForWatchlist(watchlist);
+    await fetchWatchlist();
     setRefreshing(false);
   };
 
@@ -100,80 +166,56 @@ export default function WatchlistPage() {
     }
   }, [session]);
 
-  const searchAsset = async () => {
-    if (!searchSymbol.trim()) return;
+  // Filter assets
+  useEffect(() => {
+    let filtered = assets;
 
-    setSearching(true);
-    setSearchResults(null);
-
-    try {
-      // Try to fetch price data for the symbol
-      const stockRes = await fetch(
-        `/api/prices?symbol=${searchSymbol.toUpperCase()}&type=stock`
-      );
-      const cryptoRes = await fetch(
-        `/api/prices?symbol=${searchSymbol.toUpperCase()}&type=crypto`
-      );
-
-      if (stockRes.ok) {
-        const data = await stockRes.json();
-        setSearchResults({ ...data, assetType: "STOCK" });
-      } else if (cryptoRes.ok) {
-        const data = await cryptoRes.json();
-        setSearchResults({ ...data, assetType: "CRYPTO" });
-      } else {
-        setSearchResults({ error: "Asset not found" });
-      }
-    } catch (error) {
-      console.error("Search error:", error);
-      setSearchResults({ error: "Failed to search" });
-    } finally {
-      setSearching(false);
-    }
-  };
-
-  const addToWatchlist = async () => {
-    if (!searchResults || searchResults.error) return;
-
-    try {
-      const response = await fetch("/api/watchlist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          symbol: searchResults.symbol,
-          name: searchResults.name,
-          assetType: searchResults.assetType,
-        }),
+    // Filter by type
+    if (activeFilter !== "All" && activeFilter !== "Market Open") {
+      filtered = filtered.filter((asset) => {
+        if (activeFilter === "Stocks") return asset.assetType === "STOCK";
+        if (activeFilter === "Crypto") return asset.assetType === "CRYPTO";
+        if (activeFilter === "Commodities") return asset.assetType === "COMMODITY";
+        if (activeFilter === "Currencies") return asset.assetType === "CURRENCY";
+        return true;
       });
-
-      if (response.ok) {
-        setShowAddModal(false);
-        setSearchSymbol("");
-        setSearchResults(null);
-        await fetchWatchlist();
-      } else {
-        const data = await response.json();
-        alert(data.error || "Failed to add to watchlist");
-      }
-    } catch (error) {
-      console.error("Failed to add to watchlist:", error);
-      alert("Failed to add to watchlist");
     }
-  };
 
-  const removeFromWatchlist = async (symbol: string) => {
+    // Filter by search
+    if (searchQuery) {
+      filtered = filtered.filter(
+        (asset) =>
+          asset.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          asset.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    setFilteredAssets(filtered);
+  }, [activeFilter, searchQuery, assets]);
+
+  const toggleFavorite = async (symbol: string) => {
     try {
-      const response = await fetch(`/api/watchlist?symbol=${symbol}`, {
-        method: "DELETE",
-      });
+      const asset = assets.find((a) => a.symbol === symbol);
+      if (!asset) return;
 
-      if (response.ok) {
-        setWatchlist(watchlist.filter((item) => item.symbol !== symbol));
+      if (asset.isFavorite) {
+        await fetch(`/api/watchlist?symbol=${symbol}`, { method: "DELETE" });
+        setAssets(assets.filter((a) => a.symbol !== symbol));
       }
     } catch (error) {
-      console.error("Failed to remove from watchlist:", error);
+      console.error("Failed to toggle favorite:", error);
     }
   };
+
+  const filterTabs = [
+    "All",
+    "Market Open",
+    "Stocks",
+    "Crypto",
+    "Commodities",
+    "Currencies",
+    "Smart Portfolios",
+  ];
 
   if (status === "loading" || loading) {
     return (
@@ -193,245 +235,309 @@ export default function WatchlistPage() {
     <DashboardLayout>
       <div className="p-4 lg:p-8">
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-6 flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold text-text-primary mb-2">
-              Watchlist
+            <h2 className="text-3xl font-bold text-text-primary mb-1">
+              My Watchlist
             </h2>
-            <p className="text-text-secondary">
-              Track your favorite assets with real-time prices
-            </p>
           </div>
-          <div className="flex gap-3">
-            <button
-              onClick={refreshPrices}
-              disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-3 bg-background-secondary border border-border rounded-lg text-text-primary hover:border-accent-gold transition-all disabled:opacity-50"
-            >
-              <RefreshCw
-                className={`w-5 h-5 ${refreshing ? "animate-spin" : ""}`}
-              />
-              Refresh
-            </button>
+          <div className="flex items-center gap-3">
+            {/* View Toggle */}
+            <div className="flex items-center gap-1 bg-background-card border border-border rounded-lg p-1">
+              <button
+                onClick={() => setViewMode("table")}
+                className={`p-2 rounded ${
+                  viewMode === "table"
+                    ? "bg-primary text-white"
+                    : "text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                <List className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`p-2 rounded ${
+                  viewMode === "grid"
+                    ? "bg-primary text-white"
+                    : "text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                <Grid3x3 className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Add Asset Button */}
             <button
               onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 px-4 py-3 bg-accent-gold text-background-primary rounded-lg hover:bg-accent-gold/90 transition-colors font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
             >
-              <Plus className="w-5 h-5" />
-              Add Asset
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Add</span>
+            </button>
+
+            {/* Settings Dropdown */}
+            <button className="p-2 bg-background-card border border-border rounded-lg hover:border-primary transition-colors">
+              <ChevronDown className="w-4 h-4 text-text-secondary" />
             </button>
           </div>
         </div>
 
-        {/* Watchlist Grid */}
-        {watchlist.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {watchlist.map((item) => (
-              <div
-                key={item.id}
-                className="bg-background-secondary border border-border rounded-xl p-6 hover:border-accent-gold transition-all group"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-accent-gold/20 flex items-center justify-center">
-                      <Star className="w-6 h-6 text-accent-gold fill-accent-gold" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-text-primary">
-                        {item.symbol}
-                      </h3>
-                      <p className="text-sm text-text-secondary">{item.name}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => removeFromWatchlist(item.symbol)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-accent-red/20 rounded"
-                  >
-                    <X className="w-5 h-5 text-accent-red" />
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <div className="text-sm text-text-secondary mb-1">
-                      Current Price
-                    </div>
-                    <div className="text-2xl font-bold text-text-primary">
-                      {item.currentPrice !== undefined ? (
-                        `$${item.currentPrice.toLocaleString()}`
-                      ) : (
-                        <span className="text-text-secondary text-base">
-                          Loading...
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {item.changePercent !== undefined && (
-                    <div className="flex items-center gap-2">
-                      {item.changePercent >= 0 ? (
-                        <TrendingUp className="w-5 h-5 text-accent-green" />
-                      ) : (
-                        <TrendingDown className="w-5 h-5 text-accent-red" />
-                      )}
-                      <span
-                        className={`font-medium ${
-                          item.changePercent >= 0
-                            ? "text-accent-green"
-                            : "text-accent-red"
-                        }`}
-                      >
-                        {item.changePercent >= 0 ? "+" : ""}
-                        {item.changePercent.toFixed(2)}%
-                      </span>
-                      <span className="text-sm text-text-secondary">
-                        {item.change !== undefined
-                          ? `(${item.change >= 0 ? "+" : ""}$${item.change.toFixed(
-                              2
-                            )})`
-                          : ""}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="pt-3 border-t border-border">
-                    <span
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                        item.assetType === "CRYPTO"
-                          ? "bg-accent-blue/20 text-accent-blue"
-                          : "bg-accent-green/20 text-accent-green"
-                      }`}
-                    >
-                      {item.assetType}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="bg-background-secondary border border-border rounded-xl p-12 text-center">
-            <Star className="w-16 h-16 text-text-secondary mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-text-primary mb-2">
-              No Assets in Watchlist
-            </h3>
-            <p className="text-text-secondary mb-6">
-              Add assets to track their prices in real-time
-            </p>
+        {/* Filter Tabs */}
+        <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-2">
+          {filterTabs.map((filter) => (
             <button
-              onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-accent-gold text-background-primary rounded-lg hover:bg-accent-gold/90 transition-colors font-medium"
+              key={filter}
+              onClick={() => setActiveFilter(filter)}
+              className={`px-4 py-2 rounded-full whitespace-nowrap transition-all ${
+                activeFilter === filter
+                  ? "bg-primary text-white"
+                  : "bg-background-card text-text-secondary hover:text-text-primary border border-border hover:border-primary"
+              }`}
             >
-              <Plus className="w-5 h-5" />
-              Add Your First Asset
+              {filter}
             </button>
+          ))}
+        </div>
+
+        {/* Search Bar */}
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-text-secondary" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search"
+              className="w-full pl-12 pr-4 py-3 bg-background-card border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:border-primary transition-colors"
+            />
           </div>
-        )}
+        </div>
 
-        {/* Add Asset Modal */}
-        {showAddModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-background-secondary border border-border rounded-xl p-6 max-w-md w-full">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-text-primary">
-                  Add to Watchlist
-                </h3>
-                <button
-                  onClick={() => {
-                    setShowAddModal(false);
-                    setSearchSymbol("");
-                    setSearchResults(null);
-                  }}
-                  className="p-1 hover:bg-background-primary rounded"
-                >
-                  <X className="w-5 h-5 text-text-secondary" />
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Asset Symbol (e.g., AAPL, BTC, ETH)
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={searchSymbol}
-                      onChange={(e) =>
-                        setSearchSymbol(e.target.value.toUpperCase())
-                      }
-                      onKeyPress={(e) => e.key === "Enter" && searchAsset()}
-                      placeholder="Enter symbol..."
-                      className="flex-1 px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:border-accent-gold transition-colors"
-                    />
-                    <button
-                      onClick={searchAsset}
-                      disabled={searching || !searchSymbol.trim()}
-                      className="px-6 py-3 bg-accent-gold text-background-primary rounded-lg hover:bg-accent-gold/90 transition-colors font-medium disabled:opacity-50"
+        {/* Table View */}
+        {viewMode === "table" && filteredAssets.length > 0 && (
+          <div className="bg-background-card border border-border rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left p-4 text-sm font-medium text-text-secondary">
+                      Markets
+                    </th>
+                    <th className="text-right p-4 text-sm font-medium text-text-secondary">
+                      Change 1D
+                    </th>
+                    <th className="text-center p-4 text-sm font-medium text-text-secondary hidden lg:table-cell">
+                      Chart
+                    </th>
+                    <th className="text-center p-4 text-sm font-medium text-text-secondary hidden md:table-cell">
+                      Short
+                    </th>
+                    <th className="text-center p-4 text-sm font-medium text-text-secondary hidden md:table-cell">
+                      Buy
+                    </th>
+                    <th className="text-right p-4 text-sm font-medium text-text-secondary hidden xl:table-cell">
+                      52W Range
+                    </th>
+                    <th className="text-right p-4 text-sm font-medium text-text-secondary hidden xl:table-cell">
+                      Sentiment
+                    </th>
+                    <th className="w-10"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredAssets.map((asset) => (
+                    <tr
+                      key={asset.id}
+                      className="border-b border-border hover:bg-background-elevated transition-colors cursor-pointer"
                     >
-                      {searching ? (
-                        <RefreshCw className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <Search className="w-5 h-5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {searchResults && (
-                  <div className="p-4 bg-background-primary border border-border rounded-lg">
-                    {searchResults.error ? (
-                      <div className="text-center text-accent-red">
-                        {searchResults.error}
-                      </div>
-                    ) : (
-                      <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <div>
-                            <div className="font-bold text-text-primary">
-                              {searchResults.name}
+                      {/* Asset Name & Logo */}
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                            <span className="text-primary font-bold text-sm">
+                              {asset.symbol.substring(0, 2)}
+                            </span>
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-semibold text-text-primary">
+                              {asset.symbol}
                             </div>
-                            <div className="text-sm text-text-secondary">
-                              {searchResults.symbol}
+                            <div className="text-sm text-text-secondary truncate">
+                              {asset.name}
                             </div>
                           </div>
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium ${
-                              searchResults.assetType === "CRYPTO"
-                                ? "bg-accent-blue/20 text-accent-blue"
-                                : "bg-accent-green/20 text-accent-green"
-                            }`}
-                          >
-                            {searchResults.assetType}
-                          </span>
                         </div>
-                        <div className="text-2xl font-bold text-text-primary mb-2">
-                          ${searchResults.price.toLocaleString()}
-                        </div>
+                      </td>
+
+                      {/* Change 1D */}
+                      <td className="p-4 text-right">
                         <div
-                          className={`text-sm font-medium ${
-                            searchResults.changePercent >= 0
+                          className={`font-semibold ${
+                            asset.changePercent >= 0
                               ? "text-accent-green"
                               : "text-accent-red"
                           }`}
                         >
-                          {searchResults.changePercent >= 0 ? "+" : ""}
-                          {searchResults.changePercent.toFixed(2)}%
+                          {asset.changePercent >= 0 ? "+" : ""}
+                          {asset.changePercent.toFixed(2)}%
                         </div>
-                        <button
-                          onClick={addToWatchlist}
-                          className="w-full mt-4 px-4 py-3 bg-accent-gold text-background-primary rounded-lg hover:bg-accent-gold/90 transition-colors font-medium"
-                        >
-                          Add to Watchlist
+                        <div className="text-sm text-text-secondary">
+                          {asset.changePercent >= 0 ? "▲" : "▼"} {Math.abs(asset.change).toFixed(2)}
+                        </div>
+                      </td>
+
+                      {/* Chart */}
+                      <td className="p-4 text-center hidden lg:table-cell">
+                        {asset.sparklineData && (
+                          <Sparkline
+                            data={asset.sparklineData}
+                            color={asset.changePercent >= 0 ? "green" : "red"}
+                            width={80}
+                            height={30}
+                          />
+                        )}
+                      </td>
+
+                      {/* Short Price */}
+                      <td className="p-4 text-center hidden md:table-cell">
+                        <button className="px-3 py-1 bg-accent-red/20 text-accent-red rounded text-sm font-medium hover:bg-accent-red/30 transition-colors">
+                          S
                         </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                        <div className="text-sm text-text-secondary mt-1">
+                          {asset.currentPrice.toFixed(2)}
+                        </div>
+                      </td>
+
+                      {/* Buy Price */}
+                      <td className="p-4 text-center hidden md:table-cell">
+                        <button className="px-3 py-1 bg-primary/20 text-primary rounded text-sm font-medium hover:bg-primary/30 transition-colors">
+                          B
+                        </button>
+                        <div className="text-sm text-text-secondary mt-1">
+                          {asset.currentPrice.toFixed(2)}
+                        </div>
+                      </td>
+
+                      {/* 52W Range */}
+                      <td className="p-4 hidden xl:table-cell">
+                        <div className="flex items-center gap-2 justify-end">
+                          <span className="text-sm text-text-secondary">
+                            {asset.weekRange52Low?.toFixed(2)}
+                          </span>
+                          <div className="w-24 h-1 bg-background-main rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-accent-red via-warning to-accent-green"
+                              style={{
+                                width: asset.weekRange52Low && asset.weekRange52High
+                                  ? `${((asset.currentPrice - asset.weekRange52Low) / (asset.weekRange52High - asset.weekRange52Low)) * 100}%`
+                                  : "50%",
+                              }}
+                            />
+                          </div>
+                          <span className="text-sm text-text-secondary">
+                            {asset.weekRange52High?.toFixed(2)}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Sentiment */}
+                      <td className="p-4 hidden xl:table-cell">
+                        <div className="flex items-center justify-end gap-2">
+                          <div className="text-right">
+                            <div className="font-semibold text-text-primary">
+                              {asset.sentiment}%
+                            </div>
+                            <div className="text-xs text-primary">
+                              {asset.sentimentLabel}
+                            </div>
+                          </div>
+                          <div className="w-20 h-2 bg-background-main rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-primary rounded-full"
+                              style={{ width: `${asset.sentiment}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Favorite Star */}
+                      <td className="p-4">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavorite(asset.symbol);
+                          }}
+                          className="text-accent-gold hover:scale-110 transition-transform"
+                        >
+                          <Star className="w-5 h-5 fill-current" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer Stats */}
+            <div className="flex items-center justify-between p-4 border-t border-border text-sm text-text-secondary">
+              <div className="flex items-center gap-4">
+                <div>
+                  <span className="font-medium">zł0.00</span>
+                  <span className="ml-1">Cash Available</span>
+                </div>
+                <div className="hidden md:block">
+                  <span className="font-medium">zł0.00</span>
+                  <span className="ml-1">Total Invested</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="hidden md:block">
+                  <span className="font-medium">zł0.00</span>
+                  <span className="ml-1">Profit/Loss</span>
+                </div>
+                <div>
+                  <span className="font-medium">zł0.00</span>
+                  <span className="ml-1">Portfolio Value</span>
+                </div>
               </div>
             </div>
           </div>
         )}
+
+        {/* Empty State */}
+        {filteredAssets.length === 0 && (
+          <div className="bg-background-card border border-border rounded-lg p-12 text-center">
+            <Star className="w-16 h-16 text-text-secondary mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-text-primary mb-2">
+              No Assets Found
+            </h3>
+            <p className="text-text-secondary mb-6">
+              {searchQuery
+                ? "Try a different search term"
+                : "Add assets to your watchlist to get started"}
+            </p>
+            {!searchQuery && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors font-medium"
+              >
+                <Plus className="w-5 h-5" />
+                Add Asset
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Refresh Button (Floating) */}
+        <button
+          onClick={refreshPrices}
+          disabled={refreshing}
+          className="fixed bottom-8 right-8 p-4 bg-primary text-white rounded-full shadow-xl hover:bg-primary-hover transition-all disabled:opacity-50 hover:scale-110"
+        >
+          <RefreshCw
+            className={`w-6 h-6 ${refreshing ? "animate-spin" : ""}`}
+          />
+        </button>
       </div>
     </DashboardLayout>
   );

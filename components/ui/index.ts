@@ -28,3 +28,5 @@ export { default as Skeleton, SkeletonText, SkeletonCard, SkeletonAvatar, Skelet
 export type { SkeletonProps } from "./Skeleton";
 
 export { Toaster } from "./Toaster";
+
+export { default as Sparkline } from "./Sparkline";
