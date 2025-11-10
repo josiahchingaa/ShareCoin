@@ -65,8 +65,8 @@ const config: Config = {
           greenAlt: "#00E67A",
           red: "#FF4444",
           redAlt: "#ff6b6b",
-          gold: "#d4af37",
-          goldAlt: "#f59e0b",
+          gold: "#00FF87", // Changed from #d4af37 to match green theme
+          goldAlt: "#00E67A", // Changed from #f59e0b to match green theme
           blue: "#3B82F6",
         },
         // New green-specific utilities

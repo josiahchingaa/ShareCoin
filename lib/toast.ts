@@ -33,7 +33,7 @@ export const showToast = {
       style: {
         background: "#141414",
         color: "#FFFFFF",
-        border: "1px solid #0052FF",
+        border: "1px solid #00FF87",
       },
     });
   },

@@ -35,7 +35,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     // Variant styles
     const variantStyles = {
       primary:
-        "bg-primary text-white hover:bg-primary-hover active:bg-primary-active hover:shadow-glow-blue disabled:hover:shadow-none",
+        "bg-primary text-white hover:bg-primary-hover active:bg-primary-active hover:shadow-glow-green disabled:hover:shadow-none",
       secondary:
         "bg-transparent border border-border text-text-primary hover:border-primary hover:bg-primary/10 active:bg-primary/20",
       ghost:

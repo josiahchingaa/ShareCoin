@@ -36,7 +36,7 @@ export function Toaster() {
         },
         loading: {
           iconTheme: {
-            primary: "#0052FF",
+            primary: "#00FF87",
             secondary: "#FFFFFF",
           },
         },
