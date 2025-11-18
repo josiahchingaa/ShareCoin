@@ -2,24 +2,127 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { PrismaClient } from "@prisma/client";
+import Parser from "rss-parser";
 
 const prisma = new PrismaClient();
+const parser = new Parser({
+  customFields: {
+    item: [
+      ['media:content', 'mediaContent'],
+      ['media:thumbnail', 'mediaThumbnail'],
+      ['enclosure', 'enclosure'],
+    ]
+  }
+});
 
-const NEWS_API_KEY = process.env.NEWS_API_KEY;
-const NEWS_API_URL = "https://newsapi.org/v2/top-headlines";
+// RSS Feed URLs for different categories
+// Note: Only using feeds that provide images
+// More feeds = more articles available for infinite scroll
+const RSS_FEEDS = {
+  CRYPTO: [
+    'https://cointelegraph.com/rss',
+    'https://cointelegraph.com/rss/category/latest-news',
+    'https://cointelegraph.com/rss/category/analysis',
+    'https://cointelegraph.com/rss/category/blockchain',
+    'https://cointelegraph.com/rss/category/market-analysis',
+    'https://decrypt.co/feed',
+    'https://www.coindesk.com/arc/outboundfeeds/rss/',
+    'https://www.theblock.co/rss.xml',
+    'https://bitcoinmagazine.com/.rss/full/',
+    'https://cryptoslate.com/feed/',
+    'https://www.newsbtc.com/feed/',
+  ],
+  STOCKS: [
+    'https://feeds.bloomberg.com/markets/news.rss',
+    'https://feeds.bloomberg.com/technology/news.rss',
+    'https://feeds.bloomberg.com/wealth/news.rss',
+    'https://feeds.bloomberg.com/companies/news.rss',
+    'https://feeds.bloomberg.com/industries/news.rss',
+  ],
+  ECONOMY: [
+    'https://feeds.bloomberg.com/economics/news.rss',
+    'https://feeds.bloomberg.com/politics/news.rss',
+    'https://feeds.bloomberg.com/businessweek/news.rss',
+    'https://feeds.bloomberg.com/bpol/news.rss',
+  ],
+  ALL: [
+    'https://feeds.bloomberg.com/markets/news.rss',
+    'https://cointelegraph.com/rss',
+    'https://decrypt.co/feed',
+  ]
+};
 
-interface NewsArticle {
-  source: {
-    id: string | null;
-    name: string;
-  };
-  author: string | null;
+interface RSSArticle {
   title: string;
-  description: string | null;
-  url: string;
-  urlToImage: string | null;
-  publishedAt: string;
-  content: string | null;
+  link: string;
+  pubDate: string;
+  content?: string;
+  contentSnippet?: string;
+  guid?: string;
+  isoDate?: string;
+  mediaContent?: any;
+  mediaThumbnail?: any;
+  enclosure?: {
+    url: string;
+    type: string;
+  };
+}
+
+function extractImageFromRSS(item: any): string | null {
+  // Try multiple methods to extract image
+
+  // Method 1: media:content
+  if (item.mediaContent && item.mediaContent.$) {
+    return item.mediaContent.$.url;
+  }
+
+  // Method 2: media:thumbnail
+  if (item.mediaThumbnail && item.mediaThumbnail.$) {
+    return item.mediaThumbnail.$.url;
+  }
+
+  // Method 3: enclosure
+  if (item.enclosure && item.enclosure.url) {
+    return item.enclosure.url;
+  }
+
+  // Method 4: Parse from content
+  if (item.content) {
+    const imgMatch = item.content.match(/<img[^>]+src="([^">]+)"/);
+    if (imgMatch) {
+      return imgMatch[1];
+    }
+  }
+
+  // Method 5: Parse from contentSnippet or description
+  if (item.contentSnippet) {
+    const imgMatch = item.contentSnippet.match(/<img[^>]+src="([^">]+)"/);
+    if (imgMatch) {
+      return imgMatch[1];
+    }
+  }
+
+  return null;
+}
+
+async function fetchRSSFeed(url: string, category: string): Promise<any[]> {
+  try {
+    console.log(`Fetching RSS feed: ${url}`);
+    const feed = await parser.parseURL(url);
+
+    return feed.items.slice(0, 10).map((item: any) => ({
+      title: item.title || '',
+      description: item.contentSnippet || item.content || '',
+      url: item.link || '',
+      source: feed.title || new URL(url).hostname,
+      category: category,
+      imageUrl: extractImageFromRSS(item),
+      publishedAt: item.isoDate ? new Date(item.isoDate) : new Date(item.pubDate || Date.now()),
+    }));
+  } catch (error) {
+    console.error(`Error fetching RSS feed ${url}:`, error);
+    return [];
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -32,108 +135,97 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const category = searchParams.get("category") || "ALL";
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "15");
+    const skip = (page - 1) * limit;
 
-    // Check if we have cached news (less than 30 minutes old)
-    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+    console.log(`Fetching news for category: ${category}, page: ${page}, limit: ${limit}`);
+
+    // Check if we have cached news (less than 24 hours old for RSS)
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    // Get total count for pagination - ONLY articles with images
+    const totalCount = await prisma.newsCache.count({
+      where: {
+        category: category === "ALL" ? undefined : category as any,
+        cachedAt: {
+          gte: twentyFourHoursAgo,
+        },
+        imageUrl: {
+          not: null,
+        },
+      },
+    });
 
     let cachedNews = await prisma.newsCache.findMany({
       where: {
         category: category === "ALL" ? undefined : category as any,
         cachedAt: {
-          gte: thirtyMinutesAgo,
+          gte: twentyFourHoursAgo,
+        },
+        imageUrl: {
+          not: null,
         },
       },
       orderBy: {
         publishedAt: "desc",
       },
-      take: 20,
+      skip: skip,
+      take: limit,
     });
 
     // If we have cached news, return it
     if (cachedNews.length > 0) {
-      return NextResponse.json({ articles: cachedNews, source: "cache" });
-    }
-
-    // Otherwise, fetch from NewsAPI
-    let newsQuery = "";
-    let newsCategory = "";
-
-    switch (category) {
-      case "CRYPTO":
-        newsQuery = "cryptocurrency OR bitcoin OR ethereum OR blockchain";
-        newsCategory = "CRYPTO";
-        break;
-      case "STOCKS":
-        newsQuery = "stock market OR nasdaq OR dow jones OR S&P 500";
-        newsCategory = "STOCKS";
-        break;
-      case "ECONOMY":
-        newsCategory = "ECONOMY";
-        break;
-      default:
-        // Mix of business and technology
-        newsCategory = "GENERAL";
-    }
-
-    const url = new URL(NEWS_API_URL);
-    url.searchParams.set("apiKey", NEWS_API_KEY || "");
-
-    if (newsQuery) {
-      url.searchParams.set("q", newsQuery);
-      url.searchParams.set("category", "business");
-    } else if (category === "ECONOMY") {
-      url.searchParams.set("category", "business");
-    } else {
-      url.searchParams.set("category", "business");
-    }
-
-    url.searchParams.set("language", "en");
-    url.searchParams.set("sortBy", "publishedAt");
-    url.searchParams.set("pageSize", "20");
-
-    const response = await fetch(url.toString());
-
-    if (!response.ok) {
-      console.error("NewsAPI error:", response.status, response.statusText);
-
-      // Return cached news even if old, or empty array
-      if (cachedNews.length === 0) {
-        cachedNews = await prisma.newsCache.findMany({
-          where: {
-            category: category === "ALL" ? undefined : (newsCategory as any),
-          },
-          orderBy: {
-            publishedAt: "desc",
-          },
-          take: 20,
-        });
-      }
-
+      console.log(`Returning ${cachedNews.length} cached articles`);
       return NextResponse.json({
         articles: cachedNews,
-        source: "cache_fallback",
-        error: "API rate limit reached, showing cached news"
+        source: "cache",
+        pagination: {
+          page,
+          limit,
+          total: totalCount,
+          hasMore: skip + cachedNews.length < totalCount
+        }
       });
     }
 
-    const data = await response.json();
-    const articles: NewsArticle[] = data.articles || [];
+    // Otherwise, fetch from RSS feeds
+    console.log("Cache miss, fetching from RSS feeds...");
+    const feeds = RSS_FEEDS[category as keyof typeof RSS_FEEDS] || RSS_FEEDS.ALL;
+
+    // Fetch all feeds in parallel
+    const feedPromises = feeds.map(feedUrl => fetchRSSFeed(feedUrl, category));
+    const feedResults = await Promise.all(feedPromises);
+
+    // Flatten and combine all articles
+    let allArticles = feedResults.flat();
+
+    // Remove duplicates by URL and filter articles WITHOUT images
+    const seen = new Set();
+    allArticles = allArticles.filter(article => {
+      if (!article.imageUrl) return false; // Skip articles without images
+      if (seen.has(article.url)) return false; // Skip duplicates
+      seen.add(article.url);
+      return true;
+    });
+
+    console.log(`Fetched ${allArticles.length} articles from RSS feeds (after deduplication and image filter)`);
 
     // Cache the news in database
-    if (articles.length > 0) {
-      // Clear old cache for this category (older than 24 hours)
-      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    if (allArticles.length > 0) {
+      // Clear old cache for this category (older than 48 hours to accumulate more articles)
+      const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
       await prisma.newsCache.deleteMany({
         where: {
-          category: newsCategory as any,
+          category: category as any,
           cachedAt: {
-            lt: yesterday,
+            lt: twoDaysAgo,
           },
         },
       });
 
       // Cache new articles
-      const cachePromises = articles.map((article) =>
+      const cachePromises = allArticles.map((article) =>
         prisma.newsCache.upsert({
           where: {
             url: article.url,
@@ -142,11 +234,11 @@ export async function GET(request: NextRequest) {
             title: article.title,
             description: article.description || "",
             url: article.url,
-            source: article.source.name,
-            category: newsCategory as any,
-            imageUrl: article.urlToImage,
-            publishedAt: new Date(article.publishedAt),
-            relatedSymbols: [], // Could be enhanced with AI later
+            source: article.source,
+            category: article.category as any,
+            imageUrl: article.imageUrl,
+            publishedAt: article.publishedAt,
+            relatedSymbols: [],
           },
           update: {
             cachedAt: new Date(),
@@ -156,19 +248,54 @@ export async function GET(request: NextRequest) {
 
       await Promise.all(cachePromises);
 
-      // Fetch the newly cached articles
+      // Fetch the newly cached articles with pagination - ONLY with images
+      const newTotalCount = await prisma.newsCache.count({
+        where: {
+          category: category === "ALL" ? undefined : (category as any),
+          imageUrl: {
+            not: null,
+          },
+        },
+      });
+
       cachedNews = await prisma.newsCache.findMany({
         where: {
-          category: category === "ALL" ? undefined : (newsCategory as any),
+          category: category === "ALL" ? undefined : (category as any),
+          imageUrl: {
+            not: null,
+          },
         },
         orderBy: {
           publishedAt: "desc",
         },
-        take: 20,
+        skip: skip,
+        take: limit,
+      });
+
+      console.log(`Returning ${cachedNews.length} articles`);
+      return NextResponse.json({
+        articles: cachedNews,
+        source: "rss",
+        pagination: {
+          page,
+          limit,
+          total: newTotalCount,
+          hasMore: skip + cachedNews.length < newTotalCount
+        }
       });
     }
 
-    return NextResponse.json({ articles: cachedNews, source: "api" });
+    console.log(`Returning ${cachedNews.length} articles`);
+    return NextResponse.json({
+      articles: cachedNews,
+      source: "rss",
+      pagination: {
+        page,
+        limit,
+        total: 0,
+        hasMore: false
+      }
+    });
   } catch (error) {
     console.error("Error fetching news:", error);
 
@@ -178,7 +305,7 @@ export async function GET(request: NextRequest) {
         orderBy: {
           publishedAt: "desc",
         },
-        take: 20,
+        take: 30,
       });
 
       return NextResponse.json({

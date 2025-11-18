@@ -2,9 +2,9 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Newspaper, TrendingUp, DollarSign, Globe, ExternalLink, RefreshCw } from "lucide-react";
+import { TrendingUp, DollarSign, Globe, Clock } from "lucide-react";
 
 interface NewsArticle {
   id: string;
@@ -21,10 +21,14 @@ export default function NewsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  const [articles, setArticles] = useState<NewsArticle[]>([]);
+  const [cryptoArticles, setCryptoArticles] = useState<NewsArticle[]>([]);
+  const [stocksArticles, setStocksArticles] = useState<NewsArticle[]>([]);
+  const [economyArticles, setEconomyArticles] = useState<NewsArticle[]>([]);
+
   const [loading, setLoading] = useState(true);
-  const [categoryFilter, setCategoryFilter] = useState("ALL");
-  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -35,53 +39,84 @@ export default function NewsPage() {
     }
   }, [status, session, router]);
 
-  const fetchNews = async (showRefreshIndicator = false) => {
-    if (showRefreshIndicator) setRefreshing(true);
+  const fetchAllNews = useCallback(async (pageNum: number) => {
+    if (pageNum > 1) setLoadingMore(true);
+    else setLoading(true);
+
     try {
-      const response = await fetch(`/api/news?category=${categoryFilter}`);
-      if (response.ok) {
-        const data = await response.json();
-        setArticles(data.articles);
+      // Fetch all 3 categories in parallel
+      const [cryptoRes, stocksRes, economyRes] = await Promise.all([
+        fetch(`/api/news?category=CRYPTO&page=${pageNum}&limit=10`),
+        fetch(`/api/news?category=STOCKS&page=${pageNum}&limit=10`),
+        fetch(`/api/news?category=ECONOMY&page=${pageNum}&limit=10`),
+      ]);
+
+      const [cryptoData, stocksData, economyData] = await Promise.all([
+        cryptoRes.ok ? cryptoRes.json() : { articles: [], pagination: { hasMore: false } },
+        stocksRes.ok ? stocksRes.json() : { articles: [], pagination: { hasMore: false } },
+        economyRes.ok ? economyRes.json() : { articles: [], pagination: { hasMore: false } },
+      ]);
+
+      // API now filters for images, so we get all articles with images
+      const cryptoArticlesData = cryptoData.articles || [];
+      const stocksArticlesData = stocksData.articles || [];
+      const economyArticlesData = economyData.articles || [];
+
+      console.log(`Page ${pageNum}: Crypto=${cryptoArticlesData.length}, Stocks=${stocksArticlesData.length}, Economy=${economyArticlesData.length}`);
+
+      if (pageNum === 1) {
+        setCryptoArticles(cryptoArticlesData);
+        setStocksArticles(stocksArticlesData);
+        setEconomyArticles(economyArticlesData);
+      } else {
+        setCryptoArticles(prev => [...prev, ...cryptoArticlesData]);
+        setStocksArticles(prev => [...prev, ...stocksArticlesData]);
+        setEconomyArticles(prev => [...prev, ...economyArticlesData]);
       }
+
+      // Has more if ANY category has more
+      const anyHasMore = cryptoData.pagination?.hasMore ||
+                        stocksData.pagination?.hasMore ||
+                        economyData.pagination?.hasMore;
+      setHasMore(anyHasMore);
+      setPage(pageNum);
     } catch (error) {
       console.error("Failed to fetch news:", error);
     } finally {
       setLoading(false);
-      setRefreshing(false);
+      setLoadingMore(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (session?.user?.role === "CUSTOMER") {
-      fetchNews();
+      fetchAllNews(1);
     }
-  }, [session, categoryFilter]);
+  }, [session]);
 
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case "CRYPTO":
-        return <TrendingUp className="w-5 h-5" />;
-      case "STOCKS":
-        return <DollarSign className="w-5 h-5" />;
-      case "ECONOMY":
-        return <Globe className="w-5 h-5" />;
-      default:
-        return <Newspaper className="w-5 h-5" />;
-    }
-  };
+  // Infinite scroll
+  useEffect(() => {
+    if (!session?.user?.role) return;
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case "CRYPTO":
-        return "text-accent-blue";
-      case "STOCKS":
-        return "text-accent-green";
-      case "ECONOMY":
-        return "text-accent-gold";
-      default:
-        return "text-text-secondary";
-    }
-  };
+    const handleScroll = () => {
+      const scrollPosition = window.innerHeight + document.documentElement.scrollTop;
+      const bottomPosition = document.documentElement.offsetHeight - 500;
+
+      console.log(`Scroll: ${Math.round(scrollPosition)} / ${Math.round(bottomPosition)}, hasMore: ${hasMore}, loading: ${loadingMore}, page: ${page}`);
+
+      if (scrollPosition >= bottomPosition) {
+        if (!loadingMore && hasMore) {
+          console.log(`🚀 Loading page ${page + 1}...`);
+          fetchAllNews(page + 1);
+        } else {
+          console.log(`❌ Cannot load: loadingMore=${loadingMore}, hasMore=${hasMore}`);
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [loadingMore, hasMore, page, session, fetchAllNews]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -91,21 +126,101 @@ export default function NewsPage() {
 
     if (diffHours < 1) {
       const diffMins = Math.floor(diffMs / (1000 * 60));
-      return `${diffMins} minutes ago`;
+      return `${diffMins}m ago`;
     } else if (diffHours < 24) {
-      return `${diffHours} hours ago`;
+      return `${diffHours}h ago`;
     } else {
       const diffDays = Math.floor(diffHours / 24);
-      if (diffDays === 1) return "Yesterday";
-      if (diffDays < 7) return `${diffDays} days ago`;
-      return date.toLocaleDateString();
+      return `${diffDays}d ago`;
     }
   };
+
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case "CRYPTO":
+        return <TrendingUp className="w-4 h-4 text-primary" />;
+      case "STOCKS":
+        return <DollarSign className="w-4 h-4 text-primary" />;
+      case "ECONOMY":
+        return <Globe className="w-4 h-4 text-primary" />;
+      default:
+        return null;
+    }
+  };
+
+  const renderArticleCard = (article: NewsArticle) => (
+    <a
+      key={article.id}
+      href={article.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group block"
+    >
+      <div className="bg-background-card border border-border rounded-lg overflow-hidden hover:border-primary hover:shadow-lg transition-all duration-300 h-full">
+        {/* Image */}
+        {article.imageUrl && (
+          <div className="relative h-48 bg-background-elevated overflow-hidden">
+            <img
+              src={article.imageUrl}
+              alt={article.title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          </div>
+        )}
+
+        {/* Content */}
+        <div className="p-4">
+          {/* Category Badge */}
+          <div className="flex items-center gap-2 mb-2">
+            {getCategoryIcon(article.category)}
+            <span className="text-xs font-bold text-primary uppercase">
+              {article.category}
+            </span>
+          </div>
+
+          {/* Meta */}
+          <div className="flex items-center gap-2 mb-2 text-xs text-text-tertiary">
+            <span className="font-medium">{article.source}</span>
+            <span>•</span>
+            <span>{formatDate(article.publishedAt)}</span>
+          </div>
+
+          {/* Title */}
+          <h3 className="text-base font-bold text-text-primary leading-tight mb-2 group-hover:text-primary transition-colors line-clamp-3">
+            {article.title}
+          </h3>
+
+          {/* Description */}
+          {article.description && (
+            <p className="text-sm text-text-secondary leading-relaxed line-clamp-2">
+              {article.description}
+            </p>
+          )}
+        </div>
+      </div>
+    </a>
+  );
+
+  // Combine all articles from all categories into one array
+  const allArticles = [
+    ...cryptoArticles,
+    ...stocksArticles,
+    ...economyArticles,
+  ];
+
+  // Distribute articles into rows of 3
+  const rows = [];
+  for (let i = 0; i < allArticles.length; i += 3) {
+    rows.push(allArticles.slice(i, i + 3));
+  }
 
   if (status === "loading" || loading) {
     return (
       <DashboardLayout>
-        <div className="min-h-screen flex items-center justify-center bg-background-primary">
+        <div className="min-h-screen flex items-center justify-center">
           <div className="text-text-primary text-xl">Loading news...</div>
         </div>
       </DashboardLayout>
@@ -118,131 +233,50 @@ export default function NewsPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-4 lg:p-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
+      <div className="p-4 lg:p-8 max-w-[1600px] mx-auto">
+        {/* Page Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-bold text-text-primary mb-2">
-                Market News
-              </h1>
-              <p className="text-text-secondary">
-                Stay informed with the latest financial news and market updates
-              </p>
-            </div>
-            <button
-              onClick={() => fetchNews(true)}
-              disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-3 bg-background-secondary border border-border rounded-lg text-text-primary hover:border-accent-gold transition-all disabled:opacity-50"
-            >
-              <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-          </div>
-
-          {/* Category Filters */}
-          <div className="flex gap-3 flex-wrap">
-            {["ALL", "CRYPTO", "STOCKS", "ECONOMY"].map((category) => (
-              <button
-                key={category}
-                onClick={() => setCategoryFilter(category)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  categoryFilter === category
-                    ? "bg-accent-gold text-white"
-                    : "bg-background-secondary border border-border text-text-secondary hover:border-accent-gold hover:text-text-primary"
-                }`}
-              >
-                {category === "ALL" ? "All News" : category.charAt(0) + category.slice(1).toLowerCase()}
-              </button>
-            ))}
+          <h1 className="text-3xl font-bold text-text-primary mb-2">
+            Market News
+          </h1>
+          <div className="flex items-center gap-2 text-sm text-text-secondary">
+            <Clock className="w-4 h-4" />
+            <span>Live updates from Bloomberg, Reuters, CNBC & more</span>
           </div>
         </div>
 
-        {/* News Articles */}
+        {/* News Grid - 3 columns per row */}
         <div className="space-y-6">
-          {articles.length > 0 ? (
-            articles.map((article) => (
-              <a
-                key={article.id}
-                href={article.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block bg-background-secondary border border-border rounded-xl overflow-hidden hover:border-accent-gold transition-all group"
-              >
-                <div className="flex flex-col md:flex-row">
-                  {/* Image */}
-                  {article.imageUrl && (
-                    <div className="md:w-1/3 h-48 md:h-auto relative overflow-hidden">
-                      <img
-                        src={article.imageUrl}
-                        alt={article.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    </div>
-                  )}
-
-                  {/* Content */}
-                  <div className={`flex-1 p-6 ${!article.imageUrl ? 'md:w-full' : ''}`}>
-                    {/* Category Badge */}
-                    <div className="flex items-center gap-2 mb-3">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(
-                          article.category
-                        )} bg-background-primary`}
-                      >
-                        {getCategoryIcon(article.category)}
-                        {article.category}
-                      </span>
-                      <span className="text-text-secondary text-sm">
-                        {article.source}
-                      </span>
-                      <span className="text-text-secondary text-sm">•</span>
-                      <span className="text-text-secondary text-sm">
-                        {formatDate(article.publishedAt)}
-                      </span>
-                    </div>
-
-                    {/* Title */}
-                    <h2 className="text-xl font-bold text-text-primary mb-3 group-hover:text-accent-gold transition-colors">
-                      {article.title}
-                    </h2>
-
-                    {/* Description */}
-                    {article.description && (
-                      <p className="text-text-secondary mb-4 line-clamp-2">
-                        {article.description}
-                      </p>
-                    )}
-
-                    {/* Read More Link */}
-                    <div className="flex items-center gap-2 text-accent-gold text-sm font-medium">
-                      <span>Read full article</span>
-                      <ExternalLink className="w-4 h-4" />
-                    </div>
-                  </div>
-                </div>
-              </a>
-            ))
-          ) : (
-            <div className="bg-background-secondary border border-border rounded-xl p-12 text-center">
-              <Newspaper className="w-16 h-16 text-text-secondary mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-text-primary mb-2">
-                No news articles available
-              </h3>
-              <p className="text-text-secondary mb-6">
-                Try refreshing or selecting a different category
-              </p>
-              <button
-                onClick={() => fetchNews(true)}
-                className="px-6 py-3 bg-accent-gold text-white rounded-lg hover:bg-accent-gold/90 transition-all"
-              >
-                Refresh News
-              </button>
+          {rows.map((row, index) => (
+            <div key={index} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {row.map((article) => renderArticleCard(article))}
             </div>
-          )}
+          ))}
         </div>
-      </div>
+
+        {/* Loading More Indicator */}
+        {loadingMore && (
+          <div className="py-12 text-center">
+            <div className="inline-flex items-center gap-3">
+              <div className="w-6 h-6 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              <span className="text-text-secondary">Loading more articles...</span>
+            </div>
+          </div>
+        )}
+
+        {/* No More Articles */}
+        {!loading && !loadingMore && rows.length > 0 && !hasMore && (
+          <div className="py-12 text-center text-text-secondary">
+            You've reached the end of the news feed
+          </div>
+        )}
+
+        {/* No Articles */}
+        {!loading && rows.length === 0 && (
+          <div className="py-24 text-center">
+            <p className="text-text-secondary text-lg">No articles available</p>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

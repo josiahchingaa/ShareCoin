@@ -11,8 +11,6 @@ const nextConfig = {
       },
     ],
   },
-  // Enable standalone output for deployment
-  output: 'standalone',
 }
 
 module.exports = withNextIntl(nextConfig)

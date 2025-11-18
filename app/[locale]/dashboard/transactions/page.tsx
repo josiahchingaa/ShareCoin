@@ -50,7 +50,12 @@ export default function TransactionsPage() {
         const response = await fetch("/api/transactions");
         if (response.ok) {
           const data = await response.json();
-          setTransactions(data.transactions);
+          console.log("Transactions API response:", data);
+          console.log("First transaction:", data.transactions?.[0]);
+          console.log("Transaction createdAt type:", typeof data.transactions?.[0]?.createdAt);
+          setTransactions(data.transactions || []);
+        } else {
+          console.error("API response not OK:", response.status, response.statusText);
         }
       } catch (error) {
         console.error("Failed to fetch transactions:", error);
@@ -189,7 +194,7 @@ export default function TransactionsPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {filteredTransactions.length > 0 ? (
-                  filteredTransactions.map((tx) => (
+                  filteredTransactions.filter(tx => tx && tx.id && tx.type).map((tx) => (
                     <tr
                       key={tx.id}
                       className="hover:bg-background-primary transition-colors"
@@ -215,13 +220,13 @@ export default function TransactionsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-text-secondary">
-                        {new Date(tx.createdAt).toLocaleDateString("en-US", {
+                        {tx.createdAt ? new Date(tx.createdAt).toLocaleDateString("en-US", {
                           year: "numeric",
                           month: "short",
                           day: "numeric",
                           hour: "2-digit",
                           minute: "2-digit",
-                        })}
+                        }) : 'N/A'}
                       </td>
                       <td
                         className={`px-6 py-4 text-right font-semibold ${
@@ -231,7 +236,7 @@ export default function TransactionsPage() {
                         }`}
                       >
                         {tx.type === "DEPOSIT" ? "+" : "-"}$
-                        {tx.amount.toLocaleString()}
+                        {tx.amount ? tx.amount.toLocaleString() : '0'}
                       </td>
                       <td className="px-6 py-4 text-center">
                         <span

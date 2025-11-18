@@ -15,8 +15,8 @@ export const languageNames: Record<Locale, string> = {
 };
 
 export default getRequestConfig(async ({ requestLocale }) => {
-  // Wait for the locale to be available
-  let locale = await requestLocale;
+  // This function will be called for each request
+  const locale = await requestLocale;
 
   // Validate that the incoming `locale` parameter is valid
   if (!locale || !locales.includes(locale as Locale)) {
