@@ -65,8 +65,11 @@ export async function POST(request: NextRequest) {
     const cryptos: string[] = [];
     const commodities: string[] = [];
 
-    symbols.forEach(({ symbol, type }: { symbol: string; type: string }) => {
-      const sym = symbol.toUpperCase();
+    symbols.forEach((item: string | { symbol: string; type?: string }) => {
+      // Support both string format and object format
+      const sym = (typeof item === 'string' ? item : item.symbol).toUpperCase();
+      const type = typeof item === 'object' ? item.type : undefined;
+
       if (type === "CRYPTO" || cryptoMap[sym]) {
         cryptos.push(sym);
       } else if (type === "COMMODITY" || commodityMap[sym]) {
