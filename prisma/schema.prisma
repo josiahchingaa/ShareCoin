@@ -539,3 +539,31 @@ model NewsCache {
   @@index([publishedAt])
   @@map("news_cache")
 }
+
+// Price Cache for bulk fetched asset prices
+model PriceCache {
+  id              String    @id @default(uuid())
+
+  // Asset identification
+  symbol          String    @unique
+  name            String
+  assetType       String    @map("asset_type") // STOCK, CRYPTO, COMMODITY
+
+  // Price data
+  price           Decimal   @db.Decimal(18, 8)
+  change          Decimal   @db.Decimal(18, 8)
+  changePercent   Decimal   @map("change_percent") @db.Decimal(10, 4)
+
+  // Additional data
+  volume          Decimal?  @db.Decimal(24, 2)
+  marketCap       Decimal?  @map("market_cap") @db.Decimal(24, 2)
+  high24h         Decimal?  @map("high_24h") @db.Decimal(18, 8)
+  low24h          Decimal?  @map("low_24h") @db.Decimal(18, 8)
+
+  // Timestamps
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([assetType])
+  @@index([updatedAt])
+  @@map("price_cache")
+}

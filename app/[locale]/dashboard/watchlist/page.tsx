@@ -2,19 +2,17 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import Sparkline from "@/components/ui/Sparkline";
 import {
   Star,
-  TrendingUp,
-  TrendingDown,
   Search,
-  RefreshCw,
   Plus,
   Grid3x3,
   List,
   ChevronDown,
+  Loader2,
 } from "lucide-react";
 
 interface WatchlistAsset {
@@ -26,29 +24,153 @@ interface WatchlistAsset {
   currentPrice: number;
   change: number;
   changePercent: number;
-  shortPrice?: number;
-  buyPrice?: number;
   weekRange52Low?: number;
   weekRange52High?: number;
-  sentiment?: number; // 0-100 percentage
+  sentiment?: number;
   sentimentLabel?: "Buying" | "Selling" | "Neutral";
   sparklineData?: number[];
   isFavorite: boolean;
 }
 
-// Top 20 popular assets - Stocks, Crypto, Commodities
-const POPULAR_ASSETS = [
-  // Top Stocks
+// Comprehensive list of popular assets - 100+ stocks and crypto
+const ALL_ASSETS = [
+  // Top Tech Stocks
   { symbol: "AAPL", name: "Apple Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/apple.com" },
   { symbol: "MSFT", name: "Microsoft Corporation", type: "STOCK", logoUrl: "https://logo.clearbit.com/microsoft.com" },
   { symbol: "GOOGL", name: "Alphabet Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/google.com" },
   { symbol: "AMZN", name: "Amazon.com Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/amazon.com" },
-  { symbol: "TSLA", name: "Tesla Motors, Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/tesla.com" },
+  { symbol: "TSLA", name: "Tesla Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/tesla.com" },
   { symbol: "NVDA", name: "NVIDIA Corporation", type: "STOCK", logoUrl: "https://logo.clearbit.com/nvidia.com" },
   { symbol: "META", name: "Meta Platforms Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/meta.com" },
   { symbol: "NFLX", name: "Netflix Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/netflix.com" },
   { symbol: "AMD", name: "Advanced Micro Devices", type: "STOCK", logoUrl: "https://logo.clearbit.com/amd.com" },
   { symbol: "ORCL", name: "Oracle Corporation", type: "STOCK", logoUrl: "https://logo.clearbit.com/oracle.com" },
+  { symbol: "CRM", name: "Salesforce Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/salesforce.com" },
+  { symbol: "ADBE", name: "Adobe Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/adobe.com" },
+  { symbol: "INTC", name: "Intel Corporation", type: "STOCK", logoUrl: "https://logo.clearbit.com/intel.com" },
+  { symbol: "CSCO", name: "Cisco Systems Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/cisco.com" },
+  { symbol: "IBM", name: "IBM Corporation", type: "STOCK", logoUrl: "https://logo.clearbit.com/ibm.com" },
+  { symbol: "QCOM", name: "Qualcomm Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/qualcomm.com" },
+  { symbol: "TXN", name: "Texas Instruments", type: "STOCK", logoUrl: "https://logo.clearbit.com/ti.com" },
+  { symbol: "AVGO", name: "Broadcom Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/broadcom.com" },
+  { symbol: "NOW", name: "ServiceNow Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/servicenow.com" },
+  { symbol: "SHOP", name: "Shopify Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/shopify.com" },
+
+  // Finance & Banking
+  { symbol: "JPM", name: "JPMorgan Chase & Co.", type: "STOCK", logoUrl: "https://logo.clearbit.com/jpmorganchase.com" },
+  { symbol: "V", name: "Visa Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/visa.com" },
+  { symbol: "MA", name: "Mastercard Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/mastercard.com" },
+  { symbol: "BAC", name: "Bank of America", type: "STOCK", logoUrl: "https://logo.clearbit.com/bankofamerica.com" },
+  { symbol: "WFC", name: "Wells Fargo & Co.", type: "STOCK", logoUrl: "https://logo.clearbit.com/wellsfargo.com" },
+  { symbol: "GS", name: "Goldman Sachs", type: "STOCK", logoUrl: "https://logo.clearbit.com/goldmansachs.com" },
+  { symbol: "MS", name: "Morgan Stanley", type: "STOCK", logoUrl: "https://logo.clearbit.com/morganstanley.com" },
+  { symbol: "AXP", name: "American Express", type: "STOCK", logoUrl: "https://logo.clearbit.com/americanexpress.com" },
+  { symbol: "BLK", name: "BlackRock Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/blackrock.com" },
+  { symbol: "PYPL", name: "PayPal Holdings", type: "STOCK", logoUrl: "https://logo.clearbit.com/paypal.com" },
+  { symbol: "SQ", name: "Block Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/block.xyz" },
+  { symbol: "COIN", name: "Coinbase Global", type: "STOCK", logoUrl: "https://logo.clearbit.com/coinbase.com" },
+
+  // Healthcare & Pharma
+  { symbol: "JNJ", name: "Johnson & Johnson", type: "STOCK", logoUrl: "https://logo.clearbit.com/jnj.com" },
+  { symbol: "UNH", name: "UnitedHealth Group", type: "STOCK", logoUrl: "https://logo.clearbit.com/unitedhealthgroup.com" },
+  { symbol: "PFE", name: "Pfizer Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/pfizer.com" },
+  { symbol: "ABBV", name: "AbbVie Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/abbvie.com" },
+  { symbol: "MRK", name: "Merck & Co.", type: "STOCK", logoUrl: "https://logo.clearbit.com/merck.com" },
+  { symbol: "LLY", name: "Eli Lilly and Co.", type: "STOCK", logoUrl: "https://logo.clearbit.com/lilly.com" },
+  { symbol: "TMO", name: "Thermo Fisher Scientific", type: "STOCK", logoUrl: "https://logo.clearbit.com/thermofisher.com" },
+  { symbol: "ABT", name: "Abbott Laboratories", type: "STOCK", logoUrl: "https://logo.clearbit.com/abbott.com" },
+  { symbol: "BMY", name: "Bristol-Myers Squibb", type: "STOCK", logoUrl: "https://logo.clearbit.com/bms.com" },
+  { symbol: "AMGN", name: "Amgen Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/amgen.com" },
+
+  // Consumer & Retail
+  { symbol: "WMT", name: "Walmart Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/walmart.com" },
+  { symbol: "HD", name: "The Home Depot", type: "STOCK", logoUrl: "https://logo.clearbit.com/homedepot.com" },
+  { symbol: "COST", name: "Costco Wholesale", type: "STOCK", logoUrl: "https://logo.clearbit.com/costco.com" },
+  { symbol: "NKE", name: "Nike Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/nike.com" },
+  { symbol: "MCD", name: "McDonald's Corp.", type: "STOCK", logoUrl: "https://logo.clearbit.com/mcdonalds.com" },
+  { symbol: "SBUX", name: "Starbucks Corp.", type: "STOCK", logoUrl: "https://logo.clearbit.com/starbucks.com" },
+  { symbol: "TGT", name: "Target Corporation", type: "STOCK", logoUrl: "https://logo.clearbit.com/target.com" },
+  { symbol: "LOW", name: "Lowe's Companies", type: "STOCK", logoUrl: "https://logo.clearbit.com/lowes.com" },
+  { symbol: "PG", name: "Procter & Gamble", type: "STOCK", logoUrl: "https://logo.clearbit.com/pg.com" },
+  { symbol: "KO", name: "Coca-Cola Company", type: "STOCK", logoUrl: "https://logo.clearbit.com/coca-cola.com" },
+  { symbol: "PEP", name: "PepsiCo Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/pepsico.com" },
+  { symbol: "DIS", name: "Walt Disney Co.", type: "STOCK", logoUrl: "https://logo.clearbit.com/disney.com" },
+
+  // Energy
+  { symbol: "XOM", name: "Exxon Mobil Corp.", type: "STOCK", logoUrl: "https://logo.clearbit.com/exxonmobil.com" },
+  { symbol: "CVX", name: "Chevron Corporation", type: "STOCK", logoUrl: "https://logo.clearbit.com/chevron.com" },
+  { symbol: "COP", name: "ConocoPhillips", type: "STOCK", logoUrl: "https://logo.clearbit.com/conocophillips.com" },
+  { symbol: "SLB", name: "Schlumberger Ltd.", type: "STOCK", logoUrl: "https://logo.clearbit.com/slb.com" },
+  { symbol: "EOG", name: "EOG Resources", type: "STOCK", logoUrl: "https://logo.clearbit.com/eogresources.com" },
+
+  // Industrial
+  { symbol: "CAT", name: "Caterpillar Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/cat.com" },
+  { symbol: "BA", name: "Boeing Company", type: "STOCK", logoUrl: "https://logo.clearbit.com/boeing.com" },
+  { symbol: "HON", name: "Honeywell International", type: "STOCK", logoUrl: "https://logo.clearbit.com/honeywell.com" },
+  { symbol: "UPS", name: "United Parcel Service", type: "STOCK", logoUrl: "https://logo.clearbit.com/ups.com" },
+  { symbol: "RTX", name: "RTX Corporation", type: "STOCK", logoUrl: "https://logo.clearbit.com/rtx.com" },
+  { symbol: "LMT", name: "Lockheed Martin", type: "STOCK", logoUrl: "https://logo.clearbit.com/lockheedmartin.com" },
+  { symbol: "GE", name: "General Electric", type: "STOCK", logoUrl: "https://logo.clearbit.com/ge.com" },
+  { symbol: "MMM", name: "3M Company", type: "STOCK", logoUrl: "https://logo.clearbit.com/3m.com" },
+
+  // Telecom & Media
+  { symbol: "T", name: "AT&T Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/att.com" },
+  { symbol: "VZ", name: "Verizon Communications", type: "STOCK", logoUrl: "https://logo.clearbit.com/verizon.com" },
+  { symbol: "TMUS", name: "T-Mobile US", type: "STOCK", logoUrl: "https://logo.clearbit.com/t-mobile.com" },
+  { symbol: "CMCSA", name: "Comcast Corporation", type: "STOCK", logoUrl: "https://logo.clearbit.com/comcast.com" },
+
+  // Automotive
+  { symbol: "F", name: "Ford Motor Company", type: "STOCK", logoUrl: "https://logo.clearbit.com/ford.com" },
+  { symbol: "GM", name: "General Motors", type: "STOCK", logoUrl: "https://logo.clearbit.com/gm.com" },
+  { symbol: "RIVN", name: "Rivian Automotive", type: "STOCK", logoUrl: "https://logo.clearbit.com/rivian.com" },
+  { symbol: "LCID", name: "Lucid Group", type: "STOCK", logoUrl: "https://logo.clearbit.com/lucidmotors.com" },
+
+  // Airlines & Travel
+  { symbol: "DAL", name: "Delta Air Lines", type: "STOCK", logoUrl: "https://logo.clearbit.com/delta.com" },
+  { symbol: "UAL", name: "United Airlines", type: "STOCK", logoUrl: "https://logo.clearbit.com/united.com" },
+  { symbol: "AAL", name: "American Airlines", type: "STOCK", logoUrl: "https://logo.clearbit.com/aa.com" },
+  { symbol: "LUV", name: "Southwest Airlines", type: "STOCK", logoUrl: "https://logo.clearbit.com/southwest.com" },
+  { symbol: "ABNB", name: "Airbnb Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/airbnb.com" },
+  { symbol: "UBER", name: "Uber Technologies", type: "STOCK", logoUrl: "https://logo.clearbit.com/uber.com" },
+  { symbol: "LYFT", name: "Lyft Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/lyft.com" },
+
+  // Gaming & Entertainment
+  { symbol: "EA", name: "Electronic Arts", type: "STOCK", logoUrl: "https://logo.clearbit.com/ea.com" },
+  { symbol: "ATVI", name: "Activision Blizzard", type: "STOCK", logoUrl: "https://logo.clearbit.com/activisionblizzard.com" },
+  { symbol: "TTWO", name: "Take-Two Interactive", type: "STOCK", logoUrl: "https://logo.clearbit.com/take2games.com" },
+  { symbol: "RBLX", name: "Roblox Corporation", type: "STOCK", logoUrl: "https://logo.clearbit.com/roblox.com" },
+  { symbol: "SPOT", name: "Spotify Technology", type: "STOCK", logoUrl: "https://logo.clearbit.com/spotify.com" },
+
+  // E-commerce & Social
+  { symbol: "BABA", name: "Alibaba Group", type: "STOCK", logoUrl: "https://logo.clearbit.com/alibaba.com" },
+  { symbol: "JD", name: "JD.com Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/jd.com" },
+  { symbol: "PDD", name: "PDD Holdings", type: "STOCK", logoUrl: "https://logo.clearbit.com/pinduoduo.com" },
+  { symbol: "SNAP", name: "Snap Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/snap.com" },
+  { symbol: "PINS", name: "Pinterest Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/pinterest.com" },
+  { symbol: "TWTR", name: "Twitter Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/twitter.com" },
+
+  // Semiconductors
+  { symbol: "TSM", name: "Taiwan Semiconductor", type: "STOCK", logoUrl: "https://logo.clearbit.com/tsmc.com" },
+  { symbol: "ASML", name: "ASML Holding", type: "STOCK", logoUrl: "https://logo.clearbit.com/asml.com" },
+  { symbol: "MU", name: "Micron Technology", type: "STOCK", logoUrl: "https://logo.clearbit.com/micron.com" },
+  { symbol: "AMAT", name: "Applied Materials", type: "STOCK", logoUrl: "https://logo.clearbit.com/appliedmaterials.com" },
+  { symbol: "LRCX", name: "Lam Research", type: "STOCK", logoUrl: "https://logo.clearbit.com/lamresearch.com" },
+  { symbol: "KLAC", name: "KLA Corporation", type: "STOCK", logoUrl: "https://logo.clearbit.com/kla.com" },
+  { symbol: "ARM", name: "ARM Holdings", type: "STOCK", logoUrl: "https://logo.clearbit.com/arm.com" },
+
+  // Cloud & Software
+  { symbol: "SNOW", name: "Snowflake Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/snowflake.com" },
+  { symbol: "PLTR", name: "Palantir Technologies", type: "STOCK", logoUrl: "https://logo.clearbit.com/palantir.com" },
+  { symbol: "DDOG", name: "Datadog Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/datadoghq.com" },
+  { symbol: "ZS", name: "Zscaler Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/zscaler.com" },
+  { symbol: "CRWD", name: "CrowdStrike Holdings", type: "STOCK", logoUrl: "https://logo.clearbit.com/crowdstrike.com" },
+  { symbol: "OKTA", name: "Okta Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/okta.com" },
+  { symbol: "NET", name: "Cloudflare Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/cloudflare.com" },
+  { symbol: "MDB", name: "MongoDB Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/mongodb.com" },
+  { symbol: "TEAM", name: "Atlassian Corporation", type: "STOCK", logoUrl: "https://logo.clearbit.com/atlassian.com" },
+  { symbol: "ZM", name: "Zoom Video", type: "STOCK", logoUrl: "https://logo.clearbit.com/zoom.us" },
+  { symbol: "DOCU", name: "DocuSign Inc.", type: "STOCK", logoUrl: "https://logo.clearbit.com/docusign.com" },
+
   // Top Cryptocurrencies
   { symbol: "BTC", name: "Bitcoin", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/btc@2x.png" },
   { symbol: "ETH", name: "Ethereum", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/eth@2x.png" },
@@ -57,24 +179,61 @@ const POPULAR_ASSETS = [
   { symbol: "XRP", name: "XRP", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/xrp@2x.png" },
   { symbol: "ADA", name: "Cardano", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/ada@2x.png" },
   { symbol: "DOGE", name: "Dogecoin", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/doge@2x.png" },
+  { symbol: "AVAX", name: "Avalanche", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/avax@2x.png" },
+  { symbol: "DOT", name: "Polkadot", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/dot@2x.png" },
+  { symbol: "MATIC", name: "Polygon", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/matic@2x.png" },
+  { symbol: "LINK", name: "Chainlink", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/link@2x.png" },
+  { symbol: "UNI", name: "Uniswap", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/uni@2x.png" },
+  { symbol: "LTC", name: "Litecoin", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/ltc@2x.png" },
+  { symbol: "ATOM", name: "Cosmos", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/atom@2x.png" },
+  { symbol: "XLM", name: "Stellar", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/xlm@2x.png" },
+  { symbol: "TRX", name: "TRON", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/trx@2x.png" },
+  { symbol: "ETC", name: "Ethereum Classic", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/etc@2x.png" },
+  { symbol: "FIL", name: "Filecoin", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/fil@2x.png" },
+  { symbol: "NEAR", name: "NEAR Protocol", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/near@2x.png" },
+  { symbol: "APT", name: "Aptos", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/apt@2x.png" },
+  { symbol: "SHIB", name: "Shiba Inu", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/shib@2x.png" },
+  { symbol: "ARB", name: "Arbitrum", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/arb@2x.png" },
+  { symbol: "OP", name: "Optimism", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/op@2x.png" },
+  { symbol: "INJ", name: "Injective", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/inj@2x.png" },
+  { symbol: "AAVE", name: "Aave", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/aave@2x.png" },
+  { symbol: "GRT", name: "The Graph", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/grt@2x.png" },
+  { symbol: "ALGO", name: "Algorand", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/algo@2x.png" },
+  { symbol: "FTM", name: "Fantom", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/ftm@2x.png" },
+  { symbol: "VET", name: "VeChain", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/vet@2x.png" },
+  { symbol: "SAND", name: "The Sandbox", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/sand@2x.png" },
+  { symbol: "MANA", name: "Decentraland", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/mana@2x.png" },
+  { symbol: "AXS", name: "Axie Infinity", type: "CRYPTO", logoUrl: "https://assets.coincap.io/assets/icons/axs@2x.png" },
+
   // Commodities
-  { symbol: "GOLD", name: "Gold (Non Expiry)", type: "COMMODITY", logoUrl: "https://img.icons8.com/color/96/000000/gold-bars.png" },
-  { symbol: "OIL", name: "Oil (Non Expiry)", type: "COMMODITY", logoUrl: "https://img.icons8.com/color/96/000000/oil-industry.png" },
+  { symbol: "GOLD", name: "Gold", type: "COMMODITY", logoUrl: "https://img.icons8.com/color/96/000000/gold-bars.png" },
   { symbol: "SILVER", name: "Silver", type: "COMMODITY", logoUrl: "https://img.icons8.com/fluency/96/000000/silver-bars.png" },
+  { symbol: "OIL", name: "Crude Oil", type: "COMMODITY", logoUrl: "https://img.icons8.com/color/96/000000/oil-industry.png" },
+  { symbol: "NATGAS", name: "Natural Gas", type: "COMMODITY", logoUrl: "https://img.icons8.com/color/96/000000/gas-industry.png" },
+  { symbol: "COPPER", name: "Copper", type: "COMMODITY", logoUrl: "https://img.icons8.com/color/96/000000/copper-ore.png" },
+  { symbol: "PLATINUM", name: "Platinum", type: "COMMODITY", logoUrl: "https://img.icons8.com/color/96/000000/platinum.png" },
 ];
+
+const ITEMS_PER_PAGE = 25;
 
 export default function WatchlistPageNew() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  const [assets, setAssets] = useState<WatchlistAsset[]>([]);
-  const [filteredAssets, setFilteredAssets] = useState<WatchlistAsset[]>([]);
+  const [allAssets, setAllAssets] = useState<WatchlistAsset[]>([]);
+  const [displayedAssets, setDisplayedAssets] = useState<WatchlistAsset[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [favoriteSymbols, setFavoriteSymbols] = useState<Set<string>>(new Set());
+
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -85,87 +244,113 @@ export default function WatchlistPageNew() {
     }
   }, [status, session, router]);
 
-  const fetchWatchlist = async () => {
+  // Store all cached prices
+  const [cachedPrices, setCachedPrices] = useState<Record<string, any>>({});
+
+  // Initial load - fetch favorites and ALL prices from cache
+  const initializeWatchlist = async () => {
     try {
-      // Fetch user's favorites from database
-      const response = await fetch("/api/watchlist");
-      const userFavorites = response.ok ? (await response.json()).watchlist : [];
-      const favoriteSymbols = new Set(userFavorites.map((item: any) => item.symbol));
+      // Fetch user's favorites and cached prices in parallel
+      const [favResponse, pricesResponse] = await Promise.all([
+        fetch("/api/watchlist"),
+        fetch("/api/prices/bulk") // GET cached prices from database
+      ]);
 
-      // Combine popular assets with user favorites
-      const allAssets = POPULAR_ASSETS.map((asset) => ({
-        id: asset.symbol,
-        symbol: asset.symbol,
-        name: asset.name,
-        assetType: asset.type as "STOCK" | "CRYPTO" | "COMMODITY" | "CURRENCY",
-        logoUrl: asset.logoUrl,
-        isFavorite: favoriteSymbols.has(asset.symbol),
-        currentPrice: 0,
-        change: 0,
-        changePercent: 0,
-      }));
+      const userFavorites = favResponse.ok ? (await favResponse.json()).watchlist : [];
+      const favorites = new Set(userFavorites.map((item: any) => item.symbol));
+      setFavoriteSymbols(favorites);
 
-      // Fetch price data for all assets
-      const enhancedAssets = await Promise.all(
-        allAssets.map((item) => fetchAssetData(item))
-      );
+      // Get cached prices
+      let prices: Record<string, any> = {};
+      if (pricesResponse.ok) {
+        const pricesData = await pricesResponse.json();
+        prices = pricesData.prices || {};
+        setCachedPrices(prices);
+        console.log(`Loaded ${Object.keys(prices).length} cached prices`);
+      }
 
-      setAssets(enhancedAssets);
-      setFilteredAssets(enhancedAssets);
+      // Initialize all assets with favorite status and cached prices
+      const initializedAssets = ALL_ASSETS.map((asset) => {
+        const cachedPrice = prices[asset.symbol];
+        return {
+          id: asset.symbol,
+          symbol: asset.symbol,
+          name: cachedPrice?.name || asset.name,
+          assetType: asset.type as "STOCK" | "CRYPTO" | "COMMODITY" | "CURRENCY",
+          logoUrl: asset.logoUrl,
+          isFavorite: favorites.has(asset.symbol),
+          currentPrice: cachedPrice?.price || 0,
+          change: cachedPrice?.change || 0,
+          changePercent: cachedPrice?.changePercent || 0,
+          sentiment: cachedPrice?.sentimentPercentage || Math.floor(Math.random() * 30) + 70,
+          sentimentLabel: cachedPrice?.sentimentLabel || "Neutral",
+          sparklineData: generateSparklineData(cachedPrice?.price || 100, cachedPrice?.changePercent || 0),
+          weekRange52Low: cachedPrice?.fiftyTwoWeekLow || (cachedPrice?.price || 100) * 0.7,
+          weekRange52High: cachedPrice?.fiftyTwoWeekHigh || (cachedPrice?.price || 100) * 1.3,
+        };
+      });
+
+      setAllAssets(initializedAssets);
+
+      // Load first batch (already enriched with prices)
+      const filteredList = getFilteredAssetListFromAssets(initializedAssets);
+      setDisplayedAssets(filteredList.slice(0, ITEMS_PER_PAGE));
+      setHasMore(filteredList.length > ITEMS_PER_PAGE);
     } catch (error) {
-      console.error("Failed to fetch watchlist:", error);
+      console.error("Failed to initialize watchlist:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchAssetData = async (item: any): Promise<WatchlistAsset> => {
-    try {
-      const response = await fetch(
-        `/api/prices?symbol=${item.symbol}&type=${item.assetType.toLowerCase()}`
-      );
-      if (response.ok) {
-        const priceData = await response.json();
+  // Helper to filter from already loaded assets
+  const getFilteredAssetListFromAssets = (assets: WatchlistAsset[]) => {
+    let filtered = assets;
 
-        // Generate mock sparkline data (7 days)
-        const sparkline = generateSparklineData(priceData.price, priceData.changePercent);
-
-        // Generate mock sentiment data
-        const sentiment = Math.floor(Math.random() * 30) + 70; // 70-100% for demo
-
-        return {
-          id: item.id,
-          symbol: item.symbol,
-          name: priceData.name,
-          assetType: item.assetType,
-          logoUrl: item.logoUrl,
-          currentPrice: priceData.price,
-          change: priceData.change,
-          changePercent: priceData.changePercent,
-          sparklineData: sparkline,
-          sentiment,
-          sentimentLabel: sentiment >= 80 ? "Buying" : sentiment >= 50 ? "Neutral" : "Selling",
-          isFavorite: item.isFavorite,
-          // Mock 52-week range
-          weekRange52Low: priceData.price * 0.7,
-          weekRange52High: priceData.price * 1.3,
-        };
-      }
-    } catch (error) {
-      console.error(`Failed to fetch data for ${item.symbol}:`, error);
+    if (activeFilter !== "All" && activeFilter !== "Market Open") {
+      filtered = filtered.filter((asset) => {
+        if (activeFilter === "Stocks") return asset.assetType === "STOCK";
+        if (activeFilter === "Crypto") return asset.assetType === "CRYPTO";
+        if (activeFilter === "Commodities") return asset.assetType === "COMMODITY";
+        if (activeFilter === "Currencies") return asset.assetType === "CURRENCY";
+        return true;
+      });
     }
 
-    return {
-      id: item.id,
-      symbol: item.symbol,
-      name: item.name,
-      assetType: item.assetType,
-      logoUrl: item.logoUrl,
-      currentPrice: 0,
-      change: 0,
-      changePercent: 0,
-      isFavorite: item.isFavorite,
-    };
+    if (searchQuery) {
+      filtered = filtered.filter(
+        (asset) =>
+          asset.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          asset.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    return filtered;
+  };
+
+  const loadMoreAssets = async () => {
+    if (loadingMore || !hasMore) return;
+
+    setLoadingMore(true);
+
+    const start = page * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+
+    // Get filtered list from already loaded assets
+    const filteredList = getFilteredAssetListFromAssets(allAssets);
+    const nextBatch = filteredList.slice(start, end);
+
+    if (nextBatch.length === 0) {
+      setHasMore(false);
+      setLoadingMore(false);
+      return;
+    }
+
+    // No API calls needed - data is already loaded!
+    setDisplayedAssets((prev) => [...prev, ...nextBatch]);
+    setPage((prev) => prev + 1);
+    setHasMore(end < filteredList.length);
+    setLoadingMore(false);
   };
 
   const generateSparklineData = (price: number, changePercent: number): number[] => {
@@ -182,75 +367,81 @@ export default function WatchlistPageNew() {
     return data;
   };
 
-  const refreshPrices = async () => {
-    setRefreshing(true);
-    await fetchWatchlist();
-    setRefreshing(false);
-  };
-
   useEffect(() => {
     if (session?.user?.role === "CUSTOMER") {
-      fetchWatchlist();
+      initializeWatchlist();
     }
   }, [session]);
 
-  // Filter assets
+  // Reset and reload when filter or search changes - use cached data
   useEffect(() => {
-    let filtered = assets;
+    if (loading || !session || allAssets.length === 0) return;
 
-    // Filter by type
-    if (activeFilter !== "All" && activeFilter !== "Market Open") {
-      filtered = filtered.filter((asset) => {
-        if (activeFilter === "Stocks") return asset.assetType === "STOCK";
-        if (activeFilter === "Crypto") return asset.assetType === "CRYPTO";
-        if (activeFilter === "Commodities") return asset.assetType === "COMMODITY";
-        if (activeFilter === "Currencies") return asset.assetType === "CURRENCY";
-        return true;
-      });
+    // Use already-loaded assets with cached prices
+    const filteredList = getFilteredAssetListFromAssets(allAssets);
+    const firstBatch = filteredList.slice(0, ITEMS_PER_PAGE);
+
+    setPage(1);
+    setDisplayedAssets(firstBatch);
+    setHasMore(filteredList.length > ITEMS_PER_PAGE);
+  }, [activeFilter, searchQuery, allAssets]);
+
+  // Intersection Observer for infinite scroll
+  useEffect(() => {
+    if (observerRef.current) observerRef.current.disconnect();
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+          loadMoreAssets();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loadMoreRef.current) {
+      observerRef.current.observe(loadMoreRef.current);
     }
 
-    // Filter by search
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (asset) =>
-          asset.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          asset.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    setFilteredAssets(filtered);
-  }, [activeFilter, searchQuery, assets]);
+    return () => {
+      if (observerRef.current) observerRef.current.disconnect();
+    };
+  }, [hasMore, loadingMore, loading, page]);
 
   const toggleFavorite = async (symbol: string) => {
     try {
-      const asset = assets.find((a) => a.symbol === symbol);
+      const asset = displayedAssets.find((a) => a.symbol === symbol) ||
+                   allAssets.find((a) => a.symbol === symbol);
       if (!asset) return;
 
-      if (asset.isFavorite) {
-        // Remove from favorites
+      if (favoriteSymbols.has(symbol)) {
         const response = await fetch(`/api/watchlist?symbol=${symbol}`, { method: "DELETE" });
         if (response.ok) {
-          // Update local state
-          setAssets(assets.map((a) =>
-            a.symbol === symbol ? { ...a, isFavorite: false } : a
-          ));
+          setFavoriteSymbols((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete(symbol);
+            return newSet;
+          });
+          setDisplayedAssets((prev) =>
+            prev.map((a) => (a.symbol === symbol ? { ...a, isFavorite: false } : a))
+          );
         }
       } else {
-        // Add to favorites
+        const assetInfo = ALL_ASSETS.find((a) => a.symbol === symbol);
         const response = await fetch("/api/watchlist", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            symbol: asset.symbol,
-            name: asset.name,
-            assetType: asset.assetType,
+            symbol: symbol,
+            name: assetInfo?.name || asset.name,
+            assetType: assetInfo?.type || asset.assetType,
           }),
         });
         if (response.ok) {
-          // Update local state
-          setAssets(assets.map((a) =>
-            a.symbol === symbol ? { ...a, isFavorite: true } : a
-          ));
+          setFavoriteSymbols((prev) => new Set(prev).add(symbol));
+          setDisplayedAssets((prev) =>
+            prev.map((a) => (a.symbol === symbol ? { ...a, isFavorite: true } : a))
+          );
         }
       }
     } catch (error) {
@@ -260,12 +451,9 @@ export default function WatchlistPageNew() {
 
   const filterTabs = [
     "All",
-    "Market Open",
     "Stocks",
     "Crypto",
     "Commodities",
-    "Currencies",
-    "Smart Portfolios",
   ];
 
   if (status === "loading" || loading) {
@@ -291,6 +479,9 @@ export default function WatchlistPageNew() {
             <h2 className="text-3xl font-bold text-text-primary mb-1">
               My Watchlist
             </h2>
+            <p className="text-text-secondary text-sm">
+              {ALL_ASSETS.length} assets available
+            </p>
           </div>
           <div className="flex items-center gap-3">
             {/* View Toggle */}
@@ -316,20 +507,6 @@ export default function WatchlistPageNew() {
                 <Grid3x3 className="w-4 h-4" />
               </button>
             </div>
-
-            {/* Add Asset Button */}
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Add</span>
-            </button>
-
-            {/* Settings Dropdown */}
-            <button className="p-2 bg-background-card border border-border rounded-lg hover:border-primary transition-colors">
-              <ChevronDown className="w-4 h-4 text-text-secondary" />
-            </button>
           </div>
         </div>
 
@@ -358,14 +535,14 @@ export default function WatchlistPageNew() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search"
+              placeholder="Search stocks, crypto, commodities..."
               className="w-full pl-12 pr-4 py-3 bg-background-card border border-border rounded-lg text-text-primary placeholder-text-secondary focus:outline-none focus:border-primary transition-colors"
             />
           </div>
         </div>
 
         {/* Table View */}
-        {viewMode === "table" && filteredAssets.length > 0 && (
+        {viewMode === "table" && displayedAssets.length > 0 && (
           <div className="bg-background-card border border-border rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -375,19 +552,13 @@ export default function WatchlistPageNew() {
                       Markets
                     </th>
                     <th className="text-right p-4 text-sm font-medium text-text-secondary">
+                      Price
+                    </th>
+                    <th className="text-right p-4 text-sm font-medium text-text-secondary">
                       Change 1D
                     </th>
                     <th className="text-center p-4 text-sm font-medium text-text-secondary hidden lg:table-cell">
                       Chart
-                    </th>
-                    <th className="text-center p-4 text-sm font-medium text-text-secondary hidden md:table-cell">
-                      Short
-                    </th>
-                    <th className="text-center p-4 text-sm font-medium text-text-secondary hidden md:table-cell">
-                      Buy
-                    </th>
-                    <th className="text-right p-4 text-sm font-medium text-text-secondary hidden xl:table-cell">
-                      52W Range
                     </th>
                     <th className="text-right p-4 text-sm font-medium text-text-secondary hidden xl:table-cell">
                       Sentiment
@@ -396,7 +567,7 @@ export default function WatchlistPageNew() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredAssets.map((asset) => (
+                  {displayedAssets.map((asset) => (
                     <tr
                       key={asset.id}
                       className="border-b border-border hover:bg-background-elevated transition-colors cursor-pointer"
@@ -411,7 +582,6 @@ export default function WatchlistPageNew() {
                                 alt={asset.name}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
-                                  // Fallback to initials if image fails to load
                                   e.currentTarget.style.display = "none";
                                   e.currentTarget.parentElement!.innerHTML = `<span class="text-primary font-bold text-sm">${asset.symbol.substring(0, 2)}</span>`;
                                 }}
@@ -430,6 +600,13 @@ export default function WatchlistPageNew() {
                               {asset.name}
                             </div>
                           </div>
+                        </div>
+                      </td>
+
+                      {/* Price */}
+                      <td className="p-4 text-right">
+                        <div className="font-semibold text-text-primary">
+                          ${asset.currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
                       </td>
 
@@ -462,48 +639,6 @@ export default function WatchlistPageNew() {
                         )}
                       </td>
 
-                      {/* Short Price */}
-                      <td className="p-4 text-center hidden md:table-cell">
-                        <button className="px-3 py-1 bg-accent-red/20 text-accent-red rounded text-sm font-medium hover:bg-accent-red/30 transition-colors">
-                          S
-                        </button>
-                        <div className="text-sm text-text-secondary mt-1">
-                          {asset.currentPrice.toFixed(2)}
-                        </div>
-                      </td>
-
-                      {/* Buy Price */}
-                      <td className="p-4 text-center hidden md:table-cell">
-                        <button className="px-3 py-1 bg-primary/20 text-primary rounded text-sm font-medium hover:bg-primary/30 transition-colors">
-                          B
-                        </button>
-                        <div className="text-sm text-text-secondary mt-1">
-                          {asset.currentPrice.toFixed(2)}
-                        </div>
-                      </td>
-
-                      {/* 52W Range */}
-                      <td className="p-4 hidden xl:table-cell">
-                        <div className="flex items-center gap-2 justify-end">
-                          <span className="text-sm text-text-secondary">
-                            {asset.weekRange52Low?.toFixed(2)}
-                          </span>
-                          <div className="w-24 h-1 bg-background-main rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-accent-red via-warning to-accent-green"
-                              style={{
-                                width: asset.weekRange52Low && asset.weekRange52High
-                                  ? `${((asset.currentPrice - asset.weekRange52Low) / (asset.weekRange52High - asset.weekRange52Low)) * 100}%`
-                                  : "50%",
-                              }}
-                            />
-                          </div>
-                          <span className="text-sm text-text-secondary">
-                            {asset.weekRange52High?.toFixed(2)}
-                          </span>
-                        </div>
-                      </td>
-
                       {/* Sentiment */}
                       <td className="p-4 hidden xl:table-cell">
                         <div className="flex items-center justify-end gap-2">
@@ -532,10 +667,16 @@ export default function WatchlistPageNew() {
                             toggleFavorite(asset.symbol);
                           }}
                           className={`hover:scale-110 transition-transform ${
-                            asset.isFavorite ? "text-primary" : "text-text-secondary hover:text-primary"
+                            asset.isFavorite || favoriteSymbols.has(asset.symbol)
+                              ? "text-primary"
+                              : "text-text-secondary hover:text-primary"
                           }`}
                         >
-                          <Star className={`w-5 h-5 ${asset.isFavorite ? "fill-current" : ""}`} />
+                          <Star
+                            className={`w-5 h-5 ${
+                              asset.isFavorite || favoriteSymbols.has(asset.symbol) ? "fill-current" : ""
+                            }`}
+                          />
                         </button>
                       </td>
                     </tr>
@@ -543,35 +684,26 @@ export default function WatchlistPageNew() {
                 </tbody>
               </table>
             </div>
-
-            {/* Footer Stats */}
-            <div className="flex items-center justify-between p-4 border-t border-border text-sm text-text-secondary">
-              <div className="flex items-center gap-4">
-                <div>
-                  <span className="font-medium">zł0.00</span>
-                  <span className="ml-1">Cash Available</span>
-                </div>
-                <div className="hidden md:block">
-                  <span className="font-medium">zł0.00</span>
-                  <span className="ml-1">Total Invested</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="hidden md:block">
-                  <span className="font-medium">zł0.00</span>
-                  <span className="ml-1">Profit/Loss</span>
-                </div>
-                <div>
-                  <span className="font-medium">zł0.00</span>
-                  <span className="ml-1">Portfolio Value</span>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
+        {/* Load More Trigger */}
+        <div ref={loadMoreRef} className="py-8 flex justify-center">
+          {loadingMore && (
+            <div className="flex items-center gap-2 text-text-secondary">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>Loading more assets...</span>
+            </div>
+          )}
+          {!hasMore && displayedAssets.length > 0 && (
+            <p className="text-text-secondary text-sm">
+              All {displayedAssets.length} assets loaded
+            </p>
+          )}
+        </div>
+
         {/* Empty State */}
-        {filteredAssets.length === 0 && (
+        {displayedAssets.length === 0 && !loading && (
           <div className="bg-background-card border border-border rounded-lg p-12 text-center">
             <Search className="w-16 h-16 text-text-secondary mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-text-primary mb-2">
@@ -582,17 +714,6 @@ export default function WatchlistPageNew() {
             </p>
           </div>
         )}
-
-        {/* Refresh Button (Floating) */}
-        <button
-          onClick={refreshPrices}
-          disabled={refreshing}
-          className="fixed bottom-8 right-8 p-4 bg-primary text-white rounded-full shadow-xl hover:bg-primary-hover transition-all disabled:opacity-50 hover:scale-110"
-        >
-          <RefreshCw
-            className={`w-6 h-6 ${refreshing ? "animate-spin" : ""}`}
-          />
-        </button>
       </div>
     </DashboardLayout>
   );
