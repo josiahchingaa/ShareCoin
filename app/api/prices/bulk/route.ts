@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import YahooFinanceModule from "yahoo-finance2";
-import prisma from "@/lib/db";
+import prisma from "@/lib/prisma";
 
 const yahooFinance = new (YahooFinanceModule as any)();
 
