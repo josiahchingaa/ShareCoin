@@ -135,14 +135,22 @@ model User {
   // Personal Information
   firstName     String    @map("first_name")
   lastName      String    @map("last_name")
+  dateOfBirth   DateTime? @map("date_of_birth")
   phone         String?
   address       String?
   city          String?
+  postalCode    String?   @map("postal_code")
   country       String?
+  countryCode   String?   @map("country_code")
   nationality   String?
   timezone      String    @default("UTC")
   language      Language  @default(EN)
   profilePhotoUrl String? @map("profile_photo_url")
+
+  // Employment & Financial Information
+  employmentStatus String? @map("employment_status")
+  occupation       String?
+  sourceOfFunds    String[] @map("source_of_funds")
 
   // Account Configuration
   accountType   AccountType? @map("account_type")

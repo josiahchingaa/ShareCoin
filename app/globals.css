@@ -83,3 +83,62 @@
     @apply bg-background-secondary/50 backdrop-blur-md border border-border;
   }
 }
+
+/* React Flags Select - Custom Dark Theme Styles */
+.flags-select {
+  /* Main button */
+  & > button {
+    @apply w-full px-4 py-3 bg-background-secondary border border-border rounded-lg text-text-primary !important;
+    @apply focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent !important;
+    @apply transition-all cursor-pointer !important;
+    min-height: 48px !important;
+  }
+
+  & > button:hover {
+    @apply border-accent-gold/50 !important;
+  }
+
+  /* Dropdown menu */
+  & ul {
+    @apply bg-background-secondary border border-border rounded-lg shadow-xl !important;
+    @apply mt-1 max-h-60 overflow-y-auto !important;
+  }
+
+  /* Dropdown items */
+  & ul li {
+    @apply px-4 py-3 text-text-primary cursor-pointer !important;
+    @apply hover:bg-accent-gold/20 !important;
+    @apply transition-colors !important;
+  }
+
+  & ul li:hover span {
+    @apply text-accent-gold !important;
+  }
+
+  /* Selected item */
+  & ul li[aria-selected="true"] {
+    @apply bg-accent-gold/30 !important;
+  }
+
+  /* Search input */
+  & input {
+    @apply w-full px-4 py-2 bg-background-primary border-b border-border !important;
+    @apply text-text-primary placeholder-text-secondary !important;
+    @apply focus:outline-none focus:border-accent-gold !important;
+  }
+
+  /* Flag icon */
+  & span[role="img"] {
+    @apply mr-2 !important;
+  }
+
+  /* Arrow icon */
+  & svg {
+    @apply text-text-secondary !important;
+  }
+}
+
+/* Background tertiary for disabled inputs */
+.bg-background-tertiary {
+  background-color: rgba(30, 30, 35, 0.8);
+}

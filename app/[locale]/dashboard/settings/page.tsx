@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import ReactFlagsSelect from "react-flags-select";
 import {
   User,
   Shield,
@@ -13,10 +14,104 @@ import {
   Clock,
   XCircle,
   Upload,
+  Mail,
+  Phone,
+  MapPin,
+  Briefcase,
+  Calendar,
+  Globe,
+  Lock,
 } from "lucide-react";
-import { COUNTRIES, NATIONALITIES } from "@/lib/countries";
 
 type TabType = "profile" | "security" | "kyc";
+
+// Employment status options
+const EMPLOYMENT_STATUS_OPTIONS = [
+  { value: "employed", label: "Employed" },
+  { value: "self_employed", label: "Self-Employed" },
+  { value: "unemployed", label: "Unemployed" },
+  { value: "retired", label: "Retired" },
+  { value: "student", label: "Student" },
+];
+
+// Source of funds options
+const SOURCE_OF_FUNDS_OPTIONS = [
+  { value: "salary", label: "Salary / Employment Income" },
+  { value: "self_employment", label: "Self-Employment / Business Income" },
+  { value: "savings", label: "Savings" },
+  { value: "investments", label: "Investments / Dividends" },
+  { value: "inheritance", label: "Inheritance" },
+  { value: "pension", label: "Pension / Retirement" },
+  { value: "property_sale", label: "Sale of Property / Assets" },
+  { value: "gifts", label: "Gifts / Family Support" },
+  { value: "other", label: "Other" },
+];
+
+// Country code to name mapping for display
+const COUNTRY_NAMES: Record<string, string> = {
+  US: "United States",
+  GB: "United Kingdom",
+  DE: "Germany",
+  FR: "France",
+  IT: "Italy",
+  ES: "Spain",
+  NL: "Netherlands",
+  BE: "Belgium",
+  AT: "Austria",
+  CH: "Switzerland",
+  SE: "Sweden",
+  NO: "Norway",
+  DK: "Denmark",
+  FI: "Finland",
+  IE: "Ireland",
+  PT: "Portugal",
+  PL: "Poland",
+  CZ: "Czech Republic",
+  GR: "Greece",
+  HU: "Hungary",
+  RO: "Romania",
+  BG: "Bulgaria",
+  HR: "Croatia",
+  SK: "Slovakia",
+  SI: "Slovenia",
+  LT: "Lithuania",
+  LV: "Latvia",
+  EE: "Estonia",
+  CY: "Cyprus",
+  LU: "Luxembourg",
+  MT: "Malta",
+  CA: "Canada",
+  AU: "Australia",
+  NZ: "New Zealand",
+  JP: "Japan",
+  KR: "South Korea",
+  SG: "Singapore",
+  HK: "Hong Kong",
+  AE: "United Arab Emirates",
+  SA: "Saudi Arabia",
+  QA: "Qatar",
+  KW: "Kuwait",
+  BH: "Bahrain",
+  OM: "Oman",
+  IL: "Israel",
+  TR: "Turkey",
+  ZA: "South Africa",
+  BR: "Brazil",
+  MX: "Mexico",
+  AR: "Argentina",
+  CL: "Chile",
+  CO: "Colombia",
+  IN: "India",
+  TH: "Thailand",
+  MY: "Malaysia",
+  ID: "Indonesia",
+  PH: "Philippines",
+  VN: "Vietnam",
+  CN: "China",
+  TW: "Taiwan",
+  RU: "Russia",
+  UA: "Ukraine",
+};
 
 export default function SettingsPage() {
   const { data: session, status } = useSession();
@@ -34,13 +129,19 @@ export default function SettingsPage() {
   const [profileData, setProfileData] = useState({
     firstName: "",
     lastName: "",
+    dateOfBirth: "",
     email: "",
     phone: "",
     address: "",
     city: "",
+    postalCode: "",
     country: "",
+    countryCode: "",
     nationality: "",
     timezone: "UTC",
+    employmentStatus: "",
+    occupation: "",
+    sourceOfFunds: [] as string[],
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -75,13 +176,19 @@ export default function SettingsPage() {
           setProfileData({
             firstName: data.firstName || "",
             lastName: data.lastName || "",
+            dateOfBirth: data.dateOfBirth ? data.dateOfBirth.split("T")[0] : "",
             email: data.email || "",
             phone: data.phone || "",
             address: data.address || "",
             city: data.city || "",
+            postalCode: data.postalCode || "",
             country: data.country || "",
+            countryCode: data.countryCode || "",
             nationality: data.nationality || "",
             timezone: data.timezone || "UTC",
+            employmentStatus: data.employmentStatus || "",
+            occupation: data.occupation || "",
+            sourceOfFunds: data.sourceOfFunds || [],
           });
           setKycStatus(data.kycStatus || "PENDING");
         }
@@ -194,6 +301,32 @@ export default function SettingsPage() {
     }
   };
 
+  const handleCountrySelect = (code: string) => {
+    setProfileData({
+      ...profileData,
+      countryCode: code,
+      country: COUNTRY_NAMES[code] || code,
+    });
+  };
+
+  const handleNationalitySelect = (code: string) => {
+    setProfileData({
+      ...profileData,
+      nationality: COUNTRY_NAMES[code] || code,
+    });
+  };
+
+  const handleSourceOfFundsChange = (value: string) => {
+    setProfileData((prev) => {
+      const current = prev.sourceOfFunds;
+      if (current.includes(value)) {
+        return { ...prev, sourceOfFunds: current.filter((v) => v !== value) };
+      } else {
+        return { ...prev, sourceOfFunds: [...current, value] };
+      }
+    });
+  };
+
   if (status === "loading") {
     return (
       <DashboardLayout>
@@ -210,7 +343,7 @@ export default function SettingsPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-4 lg:p-8">
+      <div className="p-4 lg:p-8 max-w-5xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-text-primary mb-2">
@@ -275,13 +408,24 @@ export default function SettingsPage() {
 
             {/* Profile Tab */}
             {activeTab === "profile" && (
-              <form onSubmit={handleProfileUpdate} className="space-y-8">
-                {/* Basic Information Section */}
-                <div>
-                  <h3 className="text-xl font-semibold text-text-primary mb-4 pb-2 border-b border-border">
-                    Basic Information
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <form onSubmit={handleProfileUpdate} className="space-y-6">
+                {/* Personal Details Section */}
+                <div className="bg-background-primary border border-border rounded-xl p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-accent-gold/20 rounded-lg">
+                      <User className="w-5 h-5 text-accent-gold" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-text-primary">
+                        Personal Details
+                      </h3>
+                      <p className="text-sm text-text-secondary">
+                        Your basic personal information
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-text-primary mb-2">
                         First Name <span className="text-accent-red">*</span>
@@ -292,7 +436,7 @@ export default function SettingsPage() {
                         onChange={(e) =>
                           setProfileData({ ...profileData, firstName: e.target.value })
                         }
-                        className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 bg-background-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all"
                         required
                       />
                     </div>
@@ -307,37 +451,84 @@ export default function SettingsPage() {
                         onChange={(e) =>
                           setProfileData({ ...profileData, lastName: e.target.value })
                         }
-                        className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 bg-background-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all"
                         required
                       />
                     </div>
 
-                    <div className="md:col-span-2">
+                    <div>
                       <label className="block text-sm font-medium text-text-primary mb-2">
-                        Email Address
+                        <Calendar className="w-4 h-4 inline mr-1" />
+                        Date of Birth <span className="text-accent-red">*</span>
                       </label>
                       <input
-                        type="email"
-                        value={profileData.email}
-                        disabled
-                        className="w-full px-4 py-3 bg-background-secondary border border-border rounded-lg text-text-secondary cursor-not-allowed"
-                        title="Email cannot be changed"
+                        type="date"
+                        value={profileData.dateOfBirth}
+                        onChange={(e) =>
+                          setProfileData({ ...profileData, dateOfBirth: e.target.value })
+                        }
+                        className="w-full px-4 py-3 bg-background-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all"
+                        required
                       />
-                      <p className="mt-1 text-xs text-text-secondary">
-                        Email address cannot be modified for security reasons
-                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-text-primary mb-2">
+                        <Globe className="w-4 h-4 inline mr-1" />
+                        Nationality
+                      </label>
+                      <ReactFlagsSelect
+                        selected={Object.keys(COUNTRY_NAMES).find(
+                          (code) => COUNTRY_NAMES[code] === profileData.nationality
+                        ) || ""}
+                        onSelect={handleNationalitySelect}
+                        searchable
+                        searchPlaceholder="Search nationality..."
+                        className="flags-select"
+                      />
                     </div>
                   </div>
                 </div>
 
                 {/* Contact Information Section */}
-                <div>
-                  <h3 className="text-xl font-semibold text-text-primary mb-4 pb-2 border-b border-border">
-                    Contact Information
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-background-primary border border-border rounded-xl p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-accent-gold/20 rounded-lg">
+                      <Mail className="w-5 h-5 text-accent-gold" />
+                    </div>
                     <div>
+                      <h3 className="text-lg font-semibold text-text-primary">
+                        Contact Information
+                      </h3>
+                      <p className="text-sm text-text-secondary">
+                        How we can reach you
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-text-primary mb-2">
+                        <Mail className="w-4 h-4 inline mr-1" />
+                        Email Address
+                        <Lock className="w-3 h-3 inline ml-2 text-text-secondary" />
+                      </label>
+                      <input
+                        type="email"
+                        value={profileData.email}
+                        disabled
+                        className="w-full px-4 py-3 bg-background-tertiary border border-border rounded-lg text-text-secondary cursor-not-allowed"
+                        title="Email cannot be changed"
+                      />
+                      <p className="mt-1 text-xs text-text-secondary flex items-center gap-1">
+                        <Lock className="w-3 h-3" />
+                        Email address cannot be modified for security reasons
+                      </p>
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-text-primary mb-2">
+                        <Phone className="w-4 h-4 inline mr-1" />
                         Phone Number
                       </label>
                       <input
@@ -347,7 +538,41 @@ export default function SettingsPage() {
                           setProfileData({ ...profileData, phone: e.target.value })
                         }
                         placeholder="+1 234 567 8900"
-                        className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 bg-background-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Residential Address Section */}
+                <div className="bg-background-primary border border-border rounded-xl p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-accent-gold/20 rounded-lg">
+                      <MapPin className="w-5 h-5 text-accent-gold" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-text-primary">
+                        Residential Address
+                      </h3>
+                      <p className="text-sm text-text-secondary">
+                        Your current home address
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-text-primary mb-2">
+                        Street Address
+                      </label>
+                      <input
+                        type="text"
+                        value={profileData.address}
+                        onChange={(e) =>
+                          setProfileData({ ...profileData, address: e.target.value })
+                        }
+                        placeholder="123 Main Street, Apartment 4B"
+                        className="w-full px-4 py-3 bg-background-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all"
                       />
                     </div>
 
@@ -362,73 +587,152 @@ export default function SettingsPage() {
                           setProfileData({ ...profileData, city: e.target.value })
                         }
                         placeholder="New York"
-                        className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 bg-background-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-text-primary mb-2">
+                        Postal / ZIP Code
+                      </label>
+                      <input
+                        type="text"
+                        value={profileData.postalCode}
+                        onChange={(e) =>
+                          setProfileData({ ...profileData, postalCode: e.target.value })
+                        }
+                        placeholder="10001"
+                        className="w-full px-4 py-3 bg-background-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all"
                       />
                     </div>
 
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-text-primary mb-2">
-                        Street Address
+                        Country
+                      </label>
+                      <ReactFlagsSelect
+                        selected={profileData.countryCode || Object.keys(COUNTRY_NAMES).find(
+                          (code) => COUNTRY_NAMES[code] === profileData.country
+                        ) || ""}
+                        onSelect={handleCountrySelect}
+                        searchable
+                        searchPlaceholder="Search country..."
+                        className="flags-select"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Employment & Financial Information Section */}
+                <div className="bg-background-primary border border-border rounded-xl p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-accent-gold/20 rounded-lg">
+                      <Briefcase className="w-5 h-5 text-accent-gold" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-text-primary">
+                        Employment & Financial Information
+                      </h3>
+                      <p className="text-sm text-text-secondary">
+                        Required for regulatory compliance
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-text-primary mb-2">
+                        Employment Status <span className="text-accent-red">*</span>
+                      </label>
+                      <select
+                        value={profileData.employmentStatus}
+                        onChange={(e) =>
+                          setProfileData({ ...profileData, employmentStatus: e.target.value })
+                        }
+                        className="w-full px-4 py-3 bg-background-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all cursor-pointer"
+                        required
+                      >
+                        <option value="">Select status</option>
+                        {EMPLOYMENT_STATUS_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-text-primary mb-2">
+                        Occupation / Job Title
                       </label>
                       <input
                         type="text"
-                        value={profileData.address}
+                        value={profileData.occupation}
                         onChange={(e) =>
-                          setProfileData({ ...profileData, address: e.target.value })
+                          setProfileData({ ...profileData, occupation: e.target.value })
                         }
-                        placeholder="123 Main Street, Apartment 4B"
-                        className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all"
+                        placeholder="e.g., Software Engineer"
+                        className="w-full px-4 py-3 bg-background-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all"
                       />
                     </div>
 
-                    <div>
+                    <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-text-primary mb-2">
-                        Country
+                        Source of Funds <span className="text-accent-red">*</span>
+                        <span className="text-text-secondary font-normal ml-1">(Select all that apply)</span>
                       </label>
-                      <select
-                        value={profileData.country}
-                        onChange={(e) =>
-                          setProfileData({ ...profileData, country: e.target.value })
-                        }
-                        className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all cursor-pointer"
-                      >
-                        <option value="">Select Country</option>
-                        {COUNTRIES.map((country) => (
-                          <option key={country.code} value={country.name}>
-                            {country.name}
-                          </option>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-2">
+                        {SOURCE_OF_FUNDS_OPTIONS.map((option) => (
+                          <label
+                            key={option.value}
+                            className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-all ${
+                              profileData.sourceOfFunds.includes(option.value)
+                                ? "bg-accent-gold/20 border-accent-gold text-accent-gold"
+                                : "bg-background-secondary border-border text-text-primary hover:border-accent-gold/50"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={profileData.sourceOfFunds.includes(option.value)}
+                              onChange={() => handleSourceOfFundsChange(option.value)}
+                              className="sr-only"
+                            />
+                            <div
+                              className={`w-4 h-4 rounded border flex items-center justify-center ${
+                                profileData.sourceOfFunds.includes(option.value)
+                                  ? "bg-accent-gold border-accent-gold"
+                                  : "border-border"
+                              }`}
+                            >
+                              {profileData.sourceOfFunds.includes(option.value) && (
+                                <CheckCircle className="w-3 h-3 text-background-primary" />
+                              )}
+                            </div>
+                            <span className="text-sm">{option.label}</span>
+                          </label>
                         ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-text-primary mb-2">
-                        Nationality
-                      </label>
-                      <select
-                        value={profileData.nationality}
-                        onChange={(e) =>
-                          setProfileData({ ...profileData, nationality: e.target.value })
-                        }
-                        className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all cursor-pointer"
-                      >
-                        <option value="">Select Nationality</option>
-                        {NATIONALITIES.map((nationality) => (
-                          <option key={nationality} value={nationality}>
-                            {nationality}
-                          </option>
-                        ))}
-                      </select>
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Preferences Section */}
-                <div>
-                  <h3 className="text-xl font-semibold text-text-primary mb-4 pb-2 border-b border-border">
-                    Preferences
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-background-primary border border-border rounded-xl p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-accent-gold/20 rounded-lg">
+                      <Globe className="w-5 h-5 text-accent-gold" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-text-primary">
+                        Preferences
+                      </h3>
+                      <p className="text-sm text-text-secondary">
+                        Your display preferences
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-text-primary mb-2">
                         Timezone
@@ -438,7 +742,7 @@ export default function SettingsPage() {
                         onChange={(e) =>
                           setProfileData({ ...profileData, timezone: e.target.value })
                         }
-                        className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 bg-background-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all cursor-pointer"
                       >
                         <option value="UTC">UTC (GMT+0)</option>
                         <option value="America/New_York">Eastern Time (GMT-5)</option>
@@ -472,82 +776,98 @@ export default function SettingsPage() {
 
             {/* Security Tab */}
             {activeTab === "security" && (
-              <form onSubmit={handlePasswordChange} className="space-y-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-text-primary mb-2">
-                      {t("currentPassword")}
-                    </label>
-                    <input
-                      type="password"
-                      value={passwordData.currentPassword}
-                      onChange={(e) =>
-                        setPasswordData({
-                          ...passwordData,
-                          currentPassword: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-gold transition-colors"
-                      required
-                    />
+              <div className="space-y-6">
+                <div className="bg-background-primary border border-border rounded-xl p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-accent-gold/20 rounded-lg">
+                      <Lock className="w-5 h-5 text-accent-gold" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-text-primary">
+                        Change Password
+                      </h3>
+                      <p className="text-sm text-text-secondary">
+                        Update your account password
+                      </p>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-text-primary mb-2">
-                      {t("newPassword")}
-                    </label>
-                    <input
-                      type="password"
-                      value={passwordData.newPassword}
-                      onChange={(e) =>
-                        setPasswordData({
-                          ...passwordData,
-                          newPassword: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-gold transition-colors"
-                      required
-                      minLength={8}
-                    />
-                  </div>
+                  <form onSubmit={handlePasswordChange} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-text-primary mb-2">
+                        {t("currentPassword")}
+                      </label>
+                      <input
+                        type="password"
+                        value={passwordData.currentPassword}
+                        onChange={(e) =>
+                          setPasswordData({
+                            ...passwordData,
+                            currentPassword: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-3 bg-background-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all"
+                        required
+                      />
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-text-primary mb-2">
-                      Confirm New Password
-                    </label>
-                    <input
-                      type="password"
-                      value={passwordData.confirmPassword}
-                      onChange={(e) =>
-                        setPasswordData({
-                          ...passwordData,
-                          confirmPassword: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-gold transition-colors"
-                      required
-                      minLength={8}
-                    />
-                  </div>
+                    <div>
+                      <label className="block text-sm font-medium text-text-primary mb-2">
+                        {t("newPassword")}
+                      </label>
+                      <input
+                        type="password"
+                        value={passwordData.newPassword}
+                        onChange={(e) =>
+                          setPasswordData({
+                            ...passwordData,
+                            newPassword: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-3 bg-background-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all"
+                        required
+                        minLength={8}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-text-primary mb-2">
+                        Confirm New Password
+                      </label>
+                      <input
+                        type="password"
+                        value={passwordData.confirmPassword}
+                        onChange={(e) =>
+                          setPasswordData({
+                            ...passwordData,
+                            confirmPassword: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-3 bg-background-secondary border border-border rounded-lg text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-gold focus:border-transparent transition-all"
+                        required
+                        minLength={8}
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="px-6 py-3 bg-accent-gold text-background-primary rounded-lg font-medium hover:bg-accent-gold/90 transition-colors disabled:opacity-50"
+                    >
+                      {loading ? tCommon("loading") : t("changePassword")}
+                    </button>
+                  </form>
                 </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-6 py-3 bg-accent-gold text-background-primary rounded-lg font-medium hover:bg-accent-gold/90 transition-colors disabled:opacity-50"
-                >
-                  {loading ? tCommon("loading") : t("changePassword")}
-                </button>
-              </form>
+              </div>
             )}
 
             {/* KYC Tab */}
             {activeTab === "kyc" && (
               <div className="space-y-6">
                 {/* KYC Status */}
-                <div className="bg-background-primary border border-border rounded-lg p-6">
+                <div className="bg-background-primary border border-border rounded-xl p-6">
                   <div className="flex items-center gap-4 mb-4">
-                    <div className="text-2xl font-bold text-text-primary">
+                    <div className="text-xl font-bold text-text-primary">
                       {t("kycStatus")}:
                     </div>
                     <div className="flex items-center gap-2">
@@ -587,91 +907,89 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Upload Form */}
-                <form onSubmit={handleKycUpload} className="space-y-6">
-                  <div className="space-y-4">
-                    {/* Passport */}
-                    <div className="bg-background-primary border border-border rounded-lg p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <h3 className="text-lg font-semibold text-text-primary">
-                            {t("passport")}
-                          </h3>
-                          <p className="text-sm text-text-secondary">
-                            Government-issued ID or Passport
-                          </p>
-                        </div>
-                        <Upload className="w-6 h-6 text-accent-gold" />
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/*,.pdf"
-                        onChange={(e) =>
-                          handleFileSelect("passport", e.target.files?.[0])
-                        }
-                        className="w-full text-text-primary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-accent-gold/20 file:text-accent-gold hover:file:bg-accent-gold/30 file:cursor-pointer"
-                      />
-                      {kycDocuments.passport && (
-                        <p className="mt-2 text-sm text-accent-green">
-                          ✓ {kycDocuments.passport.name}
+                <form onSubmit={handleKycUpload} className="space-y-4">
+                  {/* Passport */}
+                  <div className="bg-background-primary border border-border rounded-xl p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-text-primary">
+                          {t("passport")}
+                        </h3>
+                        <p className="text-sm text-text-secondary">
+                          Government-issued ID or Passport
                         </p>
-                      )}
+                      </div>
+                      <Upload className="w-6 h-6 text-accent-gold" />
                     </div>
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={(e) =>
+                        handleFileSelect("passport", e.target.files?.[0])
+                      }
+                      className="w-full text-text-primary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-accent-gold/20 file:text-accent-gold hover:file:bg-accent-gold/30 file:cursor-pointer"
+                    />
+                    {kycDocuments.passport && (
+                      <p className="mt-2 text-sm text-accent-green">
+                        Selected: {kycDocuments.passport.name}
+                      </p>
+                    )}
+                  </div>
 
-                    {/* Proof of Address */}
-                    <div className="bg-background-primary border border-border rounded-lg p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <h3 className="text-lg font-semibold text-text-primary">
-                            {t("proofOfAddress")}
-                          </h3>
-                          <p className="text-sm text-text-secondary">
-                            Utility bill or bank statement (less than 3 months old)
-                          </p>
-                        </div>
-                        <Upload className="w-6 h-6 text-accent-gold" />
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/*,.pdf"
-                        onChange={(e) =>
-                          handleFileSelect("proofOfAddress", e.target.files?.[0])
-                        }
-                        className="w-full text-text-primary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-accent-gold/20 file:text-accent-gold hover:file:bg-accent-gold/30 file:cursor-pointer"
-                      />
-                      {kycDocuments.proofOfAddress && (
-                        <p className="mt-2 text-sm text-accent-green">
-                          ✓ {kycDocuments.proofOfAddress.name}
+                  {/* Proof of Address */}
+                  <div className="bg-background-primary border border-border rounded-xl p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-text-primary">
+                          {t("proofOfAddress")}
+                        </h3>
+                        <p className="text-sm text-text-secondary">
+                          Utility bill or bank statement (less than 3 months old)
                         </p>
-                      )}
+                      </div>
+                      <Upload className="w-6 h-6 text-accent-gold" />
                     </div>
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={(e) =>
+                        handleFileSelect("proofOfAddress", e.target.files?.[0])
+                      }
+                      className="w-full text-text-primary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-accent-gold/20 file:text-accent-gold hover:file:bg-accent-gold/30 file:cursor-pointer"
+                    />
+                    {kycDocuments.proofOfAddress && (
+                      <p className="mt-2 text-sm text-accent-green">
+                        Selected: {kycDocuments.proofOfAddress.name}
+                      </p>
+                    )}
+                  </div>
 
-                    {/* Wealth Statement */}
-                    <div className="bg-background-primary border border-border rounded-lg p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <h3 className="text-lg font-semibold text-text-primary">
-                            {t("wealthStatement")}
-                          </h3>
-                          <p className="text-sm text-text-secondary">
-                            Bank statement or proof of funds ({tCommon("optional")})
-                          </p>
-                        </div>
-                        <Upload className="w-6 h-6 text-accent-gold" />
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/*,.pdf"
-                        onChange={(e) =>
-                          handleFileSelect("wealthStatement", e.target.files?.[0])
-                        }
-                        className="w-full text-text-primary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-accent-gold/20 file:text-accent-gold hover:file:bg-accent-gold/30 file:cursor-pointer"
-                      />
-                      {kycDocuments.wealthStatement && (
-                        <p className="mt-2 text-sm text-accent-green">
-                          ✓ {kycDocuments.wealthStatement.name}
+                  {/* Wealth Statement */}
+                  <div className="bg-background-primary border border-border rounded-xl p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-text-primary">
+                          {t("wealthStatement")}
+                        </h3>
+                        <p className="text-sm text-text-secondary">
+                          Bank statement or proof of funds ({tCommon("optional")})
                         </p>
-                      )}
+                      </div>
+                      <Upload className="w-6 h-6 text-accent-gold" />
                     </div>
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={(e) =>
+                        handleFileSelect("wealthStatement", e.target.files?.[0])
+                      }
+                      className="w-full text-text-primary file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-accent-gold/20 file:text-accent-gold hover:file:bg-accent-gold/30 file:cursor-pointer"
+                    />
+                    {kycDocuments.wealthStatement && (
+                      <p className="mt-2 text-sm text-accent-green">
+                        Selected: {kycDocuments.wealthStatement.name}
+                      </p>
+                    )}
                   </div>
 
                   <button

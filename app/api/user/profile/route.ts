@@ -19,13 +19,19 @@ export async function GET(request: NextRequest) {
       select: {
         firstName: true,
         lastName: true,
+        dateOfBirth: true,
         email: true,
         phone: true,
         address: true,
         city: true,
+        postalCode: true,
         country: true,
+        countryCode: true,
         nationality: true,
         timezone: true,
+        employmentStatus: true,
+        occupation: true,
+        sourceOfFunds: true,
         kycStatus: true,
       },
     });
@@ -53,30 +59,57 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const { firstName, lastName, phone, address, city, country, nationality, timezone } = await request.json();
+    const {
+      firstName,
+      lastName,
+      dateOfBirth,
+      phone,
+      address,
+      city,
+      postalCode,
+      country,
+      countryCode,
+      nationality,
+      timezone,
+      employmentStatus,
+      occupation,
+      sourceOfFunds
+    } = await request.json();
 
     const updatedUser = await prisma.user.update({
       where: { id: session.user.id },
       data: {
         firstName,
         lastName,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
         phone,
         address,
         city,
+        postalCode,
         country,
+        countryCode,
         nationality,
         timezone,
+        employmentStatus,
+        occupation,
+        sourceOfFunds: sourceOfFunds || [],
       },
       select: {
         firstName: true,
         lastName: true,
+        dateOfBirth: true,
         email: true,
         phone: true,
         address: true,
         city: true,
+        postalCode: true,
         country: true,
+        countryCode: true,
         nationality: true,
         timezone: true,
+        employmentStatus: true,
+        occupation: true,
+        sourceOfFunds: true,
       },
     });
 
