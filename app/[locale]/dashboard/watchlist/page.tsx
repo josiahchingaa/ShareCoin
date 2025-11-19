@@ -257,7 +257,7 @@ export default function WatchlistPageNew() {
       ]);
 
       const userFavorites = favResponse.ok ? (await favResponse.json()).watchlist : [];
-      const favorites = new Set(userFavorites.map((item: any) => item.symbol));
+      const favorites = new Set<string>(userFavorites.map((item: any) => item.symbol));
       setFavoriteSymbols(favorites);
 
       // Get cached prices
