@@ -22,7 +22,12 @@ const cryptoMap: Record<string, string> = {
 };
 
 const commodityMap: Record<string, string> = {
-  GOLD: "GC=F", SILVER: "SI=F", OIL: "CL=F",
+  GOLD: "GC=F",
+  SILVER: "SI=F",
+  OIL: "CL=F",
+  NATGAS: "NG=F",
+  COPPER: "HG=F",
+  PLATINUM: "PL=F",
 };
 
 export const dynamic = 'force-dynamic';
