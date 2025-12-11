@@ -185,7 +185,7 @@ export default function DepositPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background-main relative overflow-hidden pb-[100px] lg:pb-0">
+    <div className="min-h-screen bg-background-main relative pb-[100px] lg:pb-0">
       {/* Subtle Background Gradient */}
       <div className="fixed inset-0 pointer-events-none">
         <div
