@@ -337,7 +337,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-background-main">
       {/* ==================== MOBILE VIEW ==================== */}
-      <div className="lg:hidden pb-24">
+      <div className="lg:hidden pb-[100px]">
         {/* Premium Mobile Header */}
         <header className="sticky top-0 z-50 bg-background-main/80 backdrop-blur-xl border-b border-white/[0.06]">
           <div className="px-4 py-3 flex items-center justify-between">
@@ -601,7 +601,7 @@ export default function DashboardPage() {
         </section>
 
         {/* Holdings Section */}
-        <section className="px-4 mt-4 pb-28">
+        <section className="px-4 mt-4">
           <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.06] rounded-2xl overflow-hidden">
             {/* Header */}
             <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
@@ -756,7 +756,7 @@ export default function DashboardPage() {
         </section>
 
         {/* Mobile Bottom Navigation */}
-        <nav className="fixed bottom-0 left-0 right-0 bg-background-main/95 backdrop-blur-xl border-t border-white/[0.06] z-50 pb-safe">
+        <nav className="fixed bottom-0 left-0 right-0 bg-[#0A0A0A] border-t border-white/[0.08] z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
           <div className="flex items-center justify-around py-2 px-2">
             <Link
               href="/dashboard"
@@ -774,9 +774,9 @@ export default function DashboardPage() {
             </Link>
             <Link
               href="/dashboard/deposit"
-              className="flex items-center justify-center w-14 h-14 -mt-6 rounded-2xl bg-gradient-to-br from-accent-green to-emerald-500 shadow-lg shadow-accent-green/30"
+              className="flex items-center justify-center w-12 h-12 -mt-4 rounded-xl bg-gradient-to-br from-accent-green to-emerald-500 shadow-lg shadow-accent-green/30"
             >
-              <Download className="w-6 h-6 text-background-main" />
+              <Download className="w-5 h-5 text-background-main" />
             </Link>
             <Link
               href="/dashboard/transactions"
