@@ -34,7 +34,14 @@
       "Bash(dir:*)",
       "Bash(ping:*)",
       "Bash(findstr:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(sshpass -p 'Papapa987!' ssh -o StrictHostKeyChecking=no root@147.93.123.174 \"pm2 status\")",
+      "Bash(sshpass -p 'Papapa987!' ssh -o StrictHostKeyChecking=no root@147.93.123.174 \"cat /etc/nginx/sites-available/coinshares.app\")",
+      "Bash(sshpass -p 'Papapa987!' ssh -o StrictHostKeyChecking=no root@147.93.123.174 \"ls -la /etc/nginx/sites-enabled/\")",
+      "Bash(sshpass -p 'Papapa987!' ssh -o StrictHostKeyChecking=no root@147.93.123.174 \"netstat -tulpn | grep :300\")",
+      "Bash(echo:*)",
+      "Bash(where:*)",
+      "Bash(ssh-keygen:*)"
     ],
     "deny": [],
     "ask": []

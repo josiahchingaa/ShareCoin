@@ -30,6 +30,20 @@ export async function GET(request: NextRequest) {
     // Fetch current prices for all holdings
     const holdingsWithPrices = await Promise.all(
       portfolio.holdings.map(async (holding) => {
+        // CASH holdings always have price = 1 (1 USD = 1 USD)
+        if (holding.assetType === "CASH") {
+          const quantity = Number(holding.quantity);
+          return {
+            asset: holding.name,
+            symbol: holding.symbol,
+            quantity: quantity,
+            currentPrice: 1,
+            value: quantity, // For cash, value = quantity
+            change24h: 0,
+            allocation: 0,
+          };
+        }
+
         try {
           // Determine asset type based on symbol
           const assetType = holding.assetType.toLowerCase();

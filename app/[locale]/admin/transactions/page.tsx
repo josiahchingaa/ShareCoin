@@ -661,16 +661,20 @@ export default function AdminTransactionsPage() {
                   <label className="block text-text-secondary text-sm mb-2">
                     Method *
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={newTransaction.method}
                     onChange={(e) =>
                       setNewTransaction({ ...newTransaction, method: e.target.value })
                     }
-                    placeholder="e.g., Bank Transfer, Crypto"
                     className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-gold transition-colors"
                     required
-                  />
+                  >
+                    <option value="">Select Method</option>
+                    <option value="WIRE_TRANSFER">Wire Transfer</option>
+                    <option value="ACH">ACH</option>
+                    <option value="CRYPTO_TRANSFER">Crypto Transfer</option>
+                    <option value="CARD">Card</option>
+                  </select>
                 </div>
               </div>
 
@@ -839,16 +843,20 @@ export default function AdminTransactionsPage() {
                   <label className="block text-text-secondary text-sm mb-2">
                     Method *
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={editTransaction.method}
                     onChange={(e) =>
                       setEditTransaction({ ...editTransaction, method: e.target.value })
                     }
-                    placeholder="e.g., Bank Transfer, Crypto"
                     className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-gold transition-colors"
                     required
-                  />
+                  >
+                    <option value="">Select Method</option>
+                    <option value="WIRE_TRANSFER">Wire Transfer</option>
+                    <option value="ACH">ACH</option>
+                    <option value="CRYPTO_TRANSFER">Crypto Transfer</option>
+                    <option value="CARD">Card</option>
+                  </select>
                 </div>
               </div>
 

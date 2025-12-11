@@ -18,6 +18,26 @@ export async function POST(
 
     const { transactionId } = await params;
 
+    // Check if this is a mock transaction ID (starts with tx_)
+    if (transactionId.startsWith("tx_")) {
+      return NextResponse.json(
+        { error: "Cannot modify sample data. Create real transactions first." },
+        { status: 400 }
+      );
+    }
+
+    // Check if transaction exists first
+    const existingTransaction = await prisma.transaction.findUnique({
+      where: { id: transactionId },
+    });
+
+    if (!existingTransaction) {
+      return NextResponse.json(
+        { error: "Transaction not found" },
+        { status: 404 }
+      );
+    }
+
     const transaction = await prisma.transaction.update({
       where: { id: transactionId },
       data: {

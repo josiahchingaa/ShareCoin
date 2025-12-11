@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   TrendingUp,
   TrendingDown,
@@ -12,7 +12,55 @@ import {
   X,
   Edit2,
   Trash2,
+  RefreshCw,
+  DollarSign,
 } from "lucide-react";
+
+// Predefined assets list
+const CRYPTO_ASSETS = [
+  { symbol: "BTC", name: "Bitcoin" },
+  { symbol: "ETH", name: "Ethereum" },
+  { symbol: "BNB", name: "Binance Coin" },
+  { symbol: "XRP", name: "Ripple" },
+  { symbol: "SOL", name: "Solana" },
+  { symbol: "ADA", name: "Cardano" },
+  { symbol: "DOGE", name: "Dogecoin" },
+  { symbol: "DOT", name: "Polkadot" },
+  { symbol: "MATIC", name: "Polygon" },
+  { symbol: "LTC", name: "Litecoin" },
+  { symbol: "AVAX", name: "Avalanche" },
+  { symbol: "LINK", name: "Chainlink" },
+  { symbol: "UNI", name: "Uniswap" },
+  { symbol: "XLM", name: "Stellar" },
+  { symbol: "ATOM", name: "Cosmos" },
+];
+
+const STOCK_ASSETS = [
+  { symbol: "AAPL", name: "Apple Inc." },
+  { symbol: "MSFT", name: "Microsoft Corporation" },
+  { symbol: "GOOGL", name: "Alphabet Inc." },
+  { symbol: "AMZN", name: "Amazon.com Inc." },
+  { symbol: "NVDA", name: "NVIDIA Corporation" },
+  { symbol: "META", name: "Meta Platforms Inc." },
+  { symbol: "TSLA", name: "Tesla Inc." },
+  { symbol: "JPM", name: "JPMorgan Chase & Co." },
+  { symbol: "V", name: "Visa Inc." },
+  { symbol: "JNJ", name: "Johnson & Johnson" },
+  { symbol: "WMT", name: "Walmart Inc." },
+  { symbol: "PG", name: "Procter & Gamble" },
+  { symbol: "MA", name: "Mastercard Inc." },
+  { symbol: "UNH", name: "UnitedHealth Group" },
+  { symbol: "HD", name: "Home Depot Inc." },
+];
+
+const COMMODITY_ASSETS = [
+  { symbol: "GOLD", name: "Gold" },
+  { symbol: "SILVER", name: "Silver" },
+  { symbol: "OIL", name: "Crude Oil" },
+  { symbol: "NATGAS", name: "Natural Gas" },
+  { symbol: "COPPER", name: "Copper" },
+  { symbol: "PLATINUM", name: "Platinum" },
+];
 
 interface Trade {
   id: string;
@@ -23,7 +71,7 @@ interface Trade {
     email: string;
   };
   tradeType: "BUY" | "SELL";
-  assetType: "CRYPTO" | "STOCK";
+  assetType: "CRYPTO" | "STOCK" | "COMMODITY";
   symbol: string;
   assetName: string;
   quantity: number;
@@ -51,10 +99,22 @@ export default function AdminTradesPage() {
   const [tradeToDelete, setTradeToDelete] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Price fetching state
+  const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const [priceLoading, setPriceLoading] = useState(false);
+  const [editCurrentPrice, setEditCurrentPrice] = useState<number | null>(null);
+  const [editPriceLoading, setEditPriceLoading] = useState(false);
+
+  // Input mode: "quantity" means user enters quantity, "usd" means user enters USD amount
+  const [inputMode, setInputMode] = useState<"quantity" | "usd">("quantity");
+  const [usdAmount, setUsdAmount] = useState("");
+  const [editInputMode, setEditInputMode] = useState<"quantity" | "usd">("quantity");
+  const [editUsdAmount, setEditUsdAmount] = useState("");
+
   const [newTrade, setNewTrade] = useState({
     userId: "",
     tradeType: "BUY" as "BUY" | "SELL",
-    assetType: "CRYPTO" as "CRYPTO" | "STOCK",
+    assetType: "CRYPTO" as "CRYPTO" | "STOCK" | "COMMODITY",
     symbol: "",
     assetName: "",
     quantity: "",
@@ -66,13 +126,182 @@ export default function AdminTradesPage() {
     id: "",
     userId: "",
     tradeType: "BUY" as "BUY" | "SELL",
-    assetType: "CRYPTO" as "CRYPTO" | "STOCK",
+    assetType: "CRYPTO" as "CRYPTO" | "STOCK" | "COMMODITY",
     symbol: "",
     assetName: "",
     quantity: "",
     pricePerUnit: "",
     adminNote: "",
   });
+
+  // Get assets list based on selected type
+  const getAssetsList = (assetType: string) => {
+    switch (assetType) {
+      case "CRYPTO":
+        return CRYPTO_ASSETS;
+      case "STOCK":
+        return STOCK_ASSETS;
+      case "COMMODITY":
+        return COMMODITY_ASSETS;
+      default:
+        return [];
+    }
+  };
+
+  // Fetch current price for a symbol
+  const fetchPrice = useCallback(async (symbol: string, assetType: string) => {
+    if (!symbol) return null;
+
+    try {
+      const type = assetType.toLowerCase();
+      const response = await fetch(`/api/prices?symbol=${symbol}&type=${type}`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.price;
+      }
+    } catch (error) {
+      console.error("Failed to fetch price:", error);
+    }
+    return null;
+  }, []);
+
+  // Handle asset selection for new trade
+  const handleAssetSelect = async (symbol: string) => {
+    const assets = getAssetsList(newTrade.assetType);
+    const asset = assets.find(a => a.symbol === symbol);
+
+    if (asset) {
+      setNewTrade(prev => ({
+        ...prev,
+        symbol: asset.symbol,
+        assetName: asset.name,
+      }));
+
+      // Fetch current price
+      setPriceLoading(true);
+      const price = await fetchPrice(asset.symbol, newTrade.assetType);
+      if (price) {
+        setCurrentPrice(price);
+        setNewTrade(prev => ({
+          ...prev,
+          pricePerUnit: price.toString(),
+        }));
+      }
+      setPriceLoading(false);
+    }
+  };
+
+  // Handle asset selection for edit trade
+  const handleEditAssetSelect = async (symbol: string) => {
+    const assets = getAssetsList(editTrade.assetType);
+    const asset = assets.find(a => a.symbol === symbol);
+
+    if (asset) {
+      setEditTrade(prev => ({
+        ...prev,
+        symbol: asset.symbol,
+        assetName: asset.name,
+      }));
+
+      // Fetch current price
+      setEditPriceLoading(true);
+      const price = await fetchPrice(asset.symbol, editTrade.assetType);
+      if (price) {
+        setEditCurrentPrice(price);
+        setEditTrade(prev => ({
+          ...prev,
+          pricePerUnit: price.toString(),
+        }));
+      }
+      setEditPriceLoading(false);
+    }
+  };
+
+  // Refresh price for new trade
+  const refreshPrice = async () => {
+    if (!newTrade.symbol) return;
+
+    setPriceLoading(true);
+    const price = await fetchPrice(newTrade.symbol, newTrade.assetType);
+    if (price) {
+      setCurrentPrice(price);
+      setNewTrade(prev => ({
+        ...prev,
+        pricePerUnit: price.toString(),
+      }));
+      // Recalculate based on input mode
+      if (inputMode === "usd" && usdAmount) {
+        const qty = parseFloat(usdAmount) / price;
+        setNewTrade(prev => ({ ...prev, quantity: qty.toFixed(8) }));
+      }
+    }
+    setPriceLoading(false);
+  };
+
+  // Refresh price for edit trade
+  const refreshEditPrice = async () => {
+    if (!editTrade.symbol) return;
+
+    setEditPriceLoading(true);
+    const price = await fetchPrice(editTrade.symbol, editTrade.assetType);
+    if (price) {
+      setEditCurrentPrice(price);
+      setEditTrade(prev => ({
+        ...prev,
+        pricePerUnit: price.toString(),
+      }));
+      // Recalculate based on input mode
+      if (editInputMode === "usd" && editUsdAmount) {
+        const qty = parseFloat(editUsdAmount) / price;
+        setEditTrade(prev => ({ ...prev, quantity: qty.toFixed(8) }));
+      }
+    }
+    setEditPriceLoading(false);
+  };
+
+  // Handle quantity change - calculate USD
+  const handleQuantityChange = (value: string) => {
+    setNewTrade(prev => ({ ...prev, quantity: value }));
+    if (value && currentPrice) {
+      const total = parseFloat(value) * currentPrice;
+      setUsdAmount(total.toFixed(2));
+    } else {
+      setUsdAmount("");
+    }
+  };
+
+  // Handle USD amount change - calculate quantity
+  const handleUsdChange = (value: string) => {
+    setUsdAmount(value);
+    if (value && currentPrice) {
+      const qty = parseFloat(value) / currentPrice;
+      setNewTrade(prev => ({ ...prev, quantity: qty.toFixed(8) }));
+    } else {
+      setNewTrade(prev => ({ ...prev, quantity: "" }));
+    }
+  };
+
+  // Handle quantity change for edit - calculate USD
+  const handleEditQuantityChange = (value: string) => {
+    setEditTrade(prev => ({ ...prev, quantity: value }));
+    if (value && editCurrentPrice) {
+      const total = parseFloat(value) * editCurrentPrice;
+      setEditUsdAmount(total.toFixed(2));
+    } else {
+      setEditUsdAmount("");
+    }
+  };
+
+  // Handle USD amount change for edit - calculate quantity
+  const handleEditUsdChange = (value: string) => {
+    setEditUsdAmount(value);
+    if (value && editCurrentPrice) {
+      const qty = parseFloat(value) / editCurrentPrice;
+      setEditTrade(prev => ({ ...prev, quantity: qty.toFixed(8) }));
+    } else {
+      setEditTrade(prev => ({ ...prev, quantity: "" }));
+    }
+  };
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -123,7 +352,7 @@ export default function AdminTradesPage() {
         body: JSON.stringify({
           ...newTrade,
           quantity: parseFloat(newTrade.quantity),
-          pricePerUnit: parseFloat(newTrade.pricePerUnit),
+          pricePerUnit: currentPrice || parseFloat(newTrade.pricePerUnit),
         }),
       });
 
@@ -140,6 +369,9 @@ export default function AdminTradesPage() {
           pricePerUnit: "",
           adminNote: "",
         });
+        setCurrentPrice(null);
+        setUsdAmount("");
+        setInputMode("quantity");
         setShowAddModal(false);
       }
     } catch (error) {
@@ -149,19 +381,32 @@ export default function AdminTradesPage() {
     }
   };
 
-  const handleEditClick = (trade: Trade) => {
+  const handleEditClick = async (trade: Trade) => {
     setEditTrade({
       id: trade.id,
       userId: trade.user.id,
       tradeType: trade.tradeType,
-      assetType: trade.assetType,
+      assetType: trade.assetType as "CRYPTO" | "STOCK" | "COMMODITY",
       symbol: trade.symbol,
       assetName: trade.assetName,
       quantity: trade.quantity.toString(),
       pricePerUnit: trade.pricePerUnit.toString(),
       adminNote: trade.adminNote || "",
     });
+    setEditInputMode("quantity");
+    setEditUsdAmount((trade.quantity * trade.pricePerUnit).toFixed(2));
     setShowEditModal(true);
+
+    // Fetch current price for the asset
+    setEditPriceLoading(true);
+    const price = await fetchPrice(trade.symbol, trade.assetType);
+    if (price) {
+      setEditCurrentPrice(price);
+    } else {
+      // Fallback to trade's stored price
+      setEditCurrentPrice(trade.pricePerUnit);
+    }
+    setEditPriceLoading(false);
   };
 
   const handleEditTrade = async (e: React.FormEvent) => {
@@ -175,7 +420,7 @@ export default function AdminTradesPage() {
         body: JSON.stringify({
           ...editTrade,
           quantity: parseFloat(editTrade.quantity),
-          pricePerUnit: parseFloat(editTrade.pricePerUnit),
+          pricePerUnit: editCurrentPrice || parseFloat(editTrade.pricePerUnit),
         }),
       });
 
@@ -346,6 +591,7 @@ export default function AdminTradesPage() {
               <option value="all">All Assets</option>
               <option value="crypto">Crypto</option>
               <option value="stock">Stocks</option>
+              <option value="commodity">Commodities</option>
             </select>
           </div>
         </div>
@@ -547,92 +793,166 @@ export default function AdminTradesPage() {
                   </label>
                   <select
                     value={newTrade.assetType}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setNewTrade({
                         ...newTrade,
-                        assetType: e.target.value as "CRYPTO" | "STOCK",
-                      })
-                    }
+                        assetType: e.target.value as "CRYPTO" | "STOCK" | "COMMODITY",
+                        symbol: "",
+                        assetName: "",
+                        quantity: "",
+                        pricePerUnit: "",
+                      });
+                      setCurrentPrice(null);
+                      setUsdAmount("");
+                    }}
                     className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-gold transition-colors"
                     required
                   >
                     <option value="CRYPTO">Crypto</option>
                     <option value="STOCK">Stock</option>
+                    <option value="COMMODITY">Commodity</option>
                   </select>
                 </div>
 
-                {/* Symbol */}
+                {/* Asset Selection */}
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
-                    Symbol
+                    Select Asset
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={newTrade.symbol}
-                    onChange={(e) =>
-                      setNewTrade({ ...newTrade, symbol: e.target.value.toUpperCase() })
-                    }
+                    onChange={(e) => handleAssetSelect(e.target.value)}
                     className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-gold transition-colors"
-                    placeholder="BTC, ETH, AAPL..."
                     required
-                  />
+                  >
+                    <option value="">Select an asset</option>
+                    {getAssetsList(newTrade.assetType).map((asset) => (
+                      <option key={asset.symbol} value={asset.symbol}>
+                        {asset.symbol} - {asset.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                {/* Asset Name */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Asset Name
-                  </label>
-                  <input
-                    type="text"
-                    value={newTrade.assetName}
-                    onChange={(e) =>
-                      setNewTrade({ ...newTrade, assetName: e.target.value })
-                    }
-                    className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-gold transition-colors"
-                    placeholder="Bitcoin, Ethereum, Apple..."
-                    required
-                  />
-                </div>
+                {/* Current Price Display */}
+                {newTrade.symbol && (
+                  <div className="col-span-2">
+                    <div className="bg-background-primary border border-border rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-text-secondary text-sm mb-1">
+                            Current Market Price
+                          </div>
+                          <div className="text-xl font-bold text-accent-gold">
+                            {priceLoading ? (
+                              <span className="text-text-secondary">Loading...</span>
+                            ) : currentPrice ? (
+                              `$${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}`
+                            ) : (
+                              <span className="text-text-secondary">Price unavailable</span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={refreshPrice}
+                          disabled={priceLoading}
+                          className="p-2 text-accent-gold hover:bg-accent-gold/10 rounded-lg transition-colors disabled:opacity-50"
+                          title="Refresh price"
+                        >
+                          <RefreshCw className={`w-5 h-5 ${priceLoading ? "animate-spin" : ""}`} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-                {/* Quantity */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Quantity
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={newTrade.quantity}
-                    onChange={(e) =>
-                      setNewTrade({ ...newTrade, quantity: e.target.value })
-                    }
-                    className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-gold transition-colors"
-                    placeholder="0.00"
-                    required
-                  />
-                </div>
+                {/* Input Mode Toggle */}
+                {currentPrice && (
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-text-primary mb-2">
+                      Enter by
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setInputMode("quantity")}
+                        className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                          inputMode === "quantity"
+                            ? "bg-accent-gold text-background-primary"
+                            : "bg-background-primary border border-border text-text-primary hover:border-accent-gold"
+                        }`}
+                      >
+                        Quantity ({newTrade.symbol})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInputMode("usd")}
+                        className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                          inputMode === "usd"
+                            ? "bg-accent-gold text-background-primary"
+                            : "bg-background-primary border border-border text-text-primary hover:border-accent-gold"
+                        }`}
+                      >
+                        USD Amount
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-                {/* Price Per Unit */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Price Per Unit (USD)
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={newTrade.pricePerUnit}
-                    onChange={(e) =>
-                      setNewTrade({
-                        ...newTrade,
-                        pricePerUnit: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-gold transition-colors"
-                    placeholder="0.00"
-                    required
-                  />
-                </div>
+                {/* Quantity or USD Input based on mode */}
+                {currentPrice && inputMode === "quantity" && (
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-text-primary mb-2">
+                      Quantity ({newTrade.symbol})
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={newTrade.quantity}
+                      onChange={(e) => handleQuantityChange(e.target.value)}
+                      className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-gold transition-colors"
+                      placeholder={`Enter ${newTrade.symbol} amount`}
+                      required
+                    />
+                    {usdAmount && (
+                      <div className="mt-2 text-text-secondary text-sm">
+                        = ${parseFloat(usdAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {currentPrice && inputMode === "usd" && (
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-text-primary mb-2">
+                      USD Amount
+                    </label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-text-secondary" />
+                      <input
+                        type="number"
+                        step="any"
+                        value={usdAmount}
+                        onChange={(e) => handleUsdChange(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-gold transition-colors"
+                        placeholder="Enter USD amount"
+                        required
+                      />
+                    </div>
+                    {newTrade.quantity && (
+                      <div className="mt-2 text-text-secondary text-sm">
+                        = {parseFloat(newTrade.quantity).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })} {newTrade.symbol}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Hidden price field - auto-filled from market price */}
+                <input
+                  type="hidden"
+                  value={newTrade.pricePerUnit}
+                />
 
                 {/* Admin Note */}
                 <div className="col-span-2">
@@ -651,17 +971,30 @@ export default function AdminTradesPage() {
                 </div>
 
                 {/* Total Value Display */}
-                {newTrade.quantity && newTrade.pricePerUnit && (
-                  <div className="col-span-2 bg-background-primary border border-border rounded-lg p-4">
+                {newTrade.quantity && currentPrice && (
+                  <div className="col-span-2 bg-accent-gold/10 border border-accent-gold/30 rounded-lg p-4">
                     <div className="text-text-secondary text-sm mb-1">
-                      Total Value
+                      Trade Summary
                     </div>
-                    <div className="text-2xl font-bold text-accent-gold">
-                      $
-                      {(
-                        parseFloat(newTrade.quantity) *
-                        parseFloat(newTrade.pricePerUnit)
-                      ).toLocaleString()}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-text-secondary text-xs">Quantity</div>
+                        <div className="text-lg font-semibold text-text-primary">
+                          {parseFloat(newTrade.quantity).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })} {newTrade.symbol}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-text-secondary text-xs">Price per Unit</div>
+                        <div className="text-lg font-semibold text-text-primary">
+                          ${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-accent-gold/30">
+                      <div className="text-text-secondary text-xs">Total Value</div>
+                      <div className="text-2xl font-bold text-accent-gold">
+                        ${(parseFloat(newTrade.quantity) * currentPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -756,108 +1089,192 @@ export default function AdminTradesPage() {
                   </label>
                   <select
                     value={editTrade.assetType}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setEditTrade({
                         ...editTrade,
-                        assetType: e.target.value as "CRYPTO" | "STOCK",
-                      })
-                    }
+                        assetType: e.target.value as "CRYPTO" | "STOCK" | "COMMODITY",
+                        symbol: "",
+                        assetName: "",
+                        quantity: "",
+                        pricePerUnit: "",
+                      });
+                      setEditCurrentPrice(null);
+                      setEditUsdAmount("");
+                    }}
                     className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-gold transition-colors"
                     required
                   >
                     <option value="CRYPTO">Crypto</option>
                     <option value="STOCK">Stock</option>
+                    <option value="COMMODITY">Commodity</option>
                   </select>
                 </div>
 
-                {/* Symbol */}
+                {/* Asset Selection */}
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
-                    Symbol
+                    Select Asset
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={editTrade.symbol}
-                    onChange={(e) =>
-                      setEditTrade({ ...editTrade, symbol: e.target.value.toUpperCase() })
-                    }
-                    placeholder="BTC, ETH, AAPL..."
+                    onChange={(e) => handleEditAssetSelect(e.target.value)}
                     className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-gold transition-colors"
                     required
-                  />
+                  >
+                    <option value="">Select an asset</option>
+                    {getAssetsList(editTrade.assetType).map((asset) => (
+                      <option key={asset.symbol} value={asset.symbol}>
+                        {asset.symbol} - {asset.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                {/* Asset Name */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Asset Name
-                  </label>
-                  <input
-                    type="text"
-                    value={editTrade.assetName}
-                    onChange={(e) =>
-                      setEditTrade({ ...editTrade, assetName: e.target.value })
-                    }
-                    placeholder="Bitcoin, Ethereum, Apple..."
-                    className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-gold transition-colors"
-                    required
-                  />
-                </div>
-
-                {/* Quantity */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Quantity
-                  </label>
-                  <input
-                    type="number"
-                    step="0.00000001"
-                    value={editTrade.quantity}
-                    onChange={(e) =>
-                      setEditTrade({ ...editTrade, quantity: e.target.value })
-                    }
-                    placeholder="0.00"
-                    className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-gold transition-colors"
-                    required
-                  />
-                </div>
-
-                {/* Price Per Unit */}
-                <div>
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Price Per Unit ($)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={editTrade.pricePerUnit}
-                    onChange={(e) =>
-                      setEditTrade({ ...editTrade, pricePerUnit: e.target.value })
-                    }
-                    placeholder="0.00"
-                    className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-gold transition-colors"
-                    required
-                  />
-                </div>
-
-                {/* Total Value Display */}
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-text-primary mb-2">
-                    Total Value
-                  </label>
-                  <div className="px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary font-semibold text-lg">
-                    $
-                    {editTrade.quantity && editTrade.pricePerUnit
-                      ? (
-                          parseFloat(editTrade.quantity) *
-                          parseFloat(editTrade.pricePerUnit)
-                        ).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })
-                      : "0.00"}
+                {/* Current Price Display */}
+                {editTrade.symbol && (
+                  <div className="col-span-2">
+                    <div className="bg-background-primary border border-border rounded-lg p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-text-secondary text-sm mb-1">
+                            Current Market Price
+                          </div>
+                          <div className="text-xl font-bold text-accent-gold">
+                            {editPriceLoading ? (
+                              <span className="text-text-secondary">Loading...</span>
+                            ) : editCurrentPrice ? (
+                              `$${editCurrentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}`
+                            ) : (
+                              <span className="text-text-secondary">Price unavailable</span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={refreshEditPrice}
+                          disabled={editPriceLoading}
+                          className="p-2 text-accent-gold hover:bg-accent-gold/10 rounded-lg transition-colors disabled:opacity-50"
+                          title="Refresh price"
+                        >
+                          <RefreshCw className={`w-5 h-5 ${editPriceLoading ? "animate-spin" : ""}`} />
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* Input Mode Toggle */}
+                {editCurrentPrice && (
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-text-primary mb-2">
+                      Enter by
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditInputMode("quantity")}
+                        className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                          editInputMode === "quantity"
+                            ? "bg-accent-gold text-background-primary"
+                            : "bg-background-primary border border-border text-text-primary hover:border-accent-gold"
+                        }`}
+                      >
+                        Quantity ({editTrade.symbol})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditInputMode("usd")}
+                        className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                          editInputMode === "usd"
+                            ? "bg-accent-gold text-background-primary"
+                            : "bg-background-primary border border-border text-text-primary hover:border-accent-gold"
+                        }`}
+                      >
+                        USD Amount
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Quantity or USD Input based on mode */}
+                {editCurrentPrice && editInputMode === "quantity" && (
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-text-primary mb-2">
+                      Quantity ({editTrade.symbol})
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={editTrade.quantity}
+                      onChange={(e) => handleEditQuantityChange(e.target.value)}
+                      className="w-full px-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-gold transition-colors"
+                      placeholder={`Enter ${editTrade.symbol} amount`}
+                      required
+                    />
+                    {editUsdAmount && (
+                      <div className="mt-2 text-text-secondary text-sm">
+                        = ${parseFloat(editUsdAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {editCurrentPrice && editInputMode === "usd" && (
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-text-primary mb-2">
+                      USD Amount
+                    </label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-text-secondary" />
+                      <input
+                        type="number"
+                        step="any"
+                        value={editUsdAmount}
+                        onChange={(e) => handleEditUsdChange(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 bg-background-primary border border-border rounded-lg text-text-primary focus:outline-none focus:border-accent-gold transition-colors"
+                        placeholder="Enter USD amount"
+                        required
+                      />
+                    </div>
+                    {editTrade.quantity && (
+                      <div className="mt-2 text-text-secondary text-sm">
+                        = {parseFloat(editTrade.quantity).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })} {editTrade.symbol}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Hidden price field */}
+                <input type="hidden" value={editTrade.pricePerUnit} />
+
+                {/* Trade Summary */}
+                {editTrade.quantity && editCurrentPrice && (
+                  <div className="col-span-2 bg-accent-gold/10 border border-accent-gold/30 rounded-lg p-4">
+                    <div className="text-text-secondary text-sm mb-1">
+                      Trade Summary
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-text-secondary text-xs">Quantity</div>
+                        <div className="text-lg font-semibold text-text-primary">
+                          {parseFloat(editTrade.quantity).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })} {editTrade.symbol}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-text-secondary text-xs">Price per Unit</div>
+                        <div className="text-lg font-semibold text-text-primary">
+                          ${editCurrentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-accent-gold/30">
+                      <div className="text-text-secondary text-xs">Total Value</div>
+                      <div className="text-2xl font-bold text-accent-gold">
+                        ${(parseFloat(editTrade.quantity) * editCurrentPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Admin Note */}
                 <div className="col-span-2">

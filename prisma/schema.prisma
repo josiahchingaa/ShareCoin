@@ -40,6 +40,8 @@ enum KYCStatus {
 enum AssetType {
   CRYPTO
   STOCK
+  CASH    // For fiat currency holdings (USD, EUR, etc.)
+  COMMODITY // For gold, silver, oil, etc.
 }
 
 enum TradeType {

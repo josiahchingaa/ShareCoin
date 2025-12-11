@@ -28,80 +28,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    // If no transactions yet, return mock data
-    if (transactions.length === 0) {
-      const mockTransactions = [
-        {
-          id: "tx_001",
-          user: {
-            id: "user_001",
-            firstName: "John",
-            lastName: "Doe",
-            email: "john@example.com",
-          },
-          transactionType: "DEPOSIT",
-          amount: 10000,
-          currency: "USD",
-          method: "WIRE_TRANSFER",
-          status: "PENDING",
-          receiptUrl: null,
-          blockchainTxId: null,
-          bankReference: "WIRE2024001",
-          adminNote: null,
-          processedBy: null,
-          processedAt: null,
-          createdAt: new Date("2024-02-20T10:30:00").toISOString(),
-          updatedAt: new Date("2024-02-20T10:30:00").toISOString(),
-        },
-        {
-          id: "tx_002",
-          user: {
-            id: "user_002",
-            firstName: "Jane",
-            lastName: "Smith",
-            email: "jane@example.com",
-          },
-          transactionType: "WITHDRAWAL",
-          amount: 5000,
-          currency: "USD",
-          method: "WIRE_TRANSFER",
-          status: "PENDING",
-          receiptUrl: null,
-          blockchainTxId: null,
-          bankReference: "WIRE2024002",
-          adminNote: null,
-          processedBy: null,
-          processedAt: null,
-          createdAt: new Date("2024-02-19T15:20:00").toISOString(),
-          updatedAt: new Date("2024-02-19T15:20:00").toISOString(),
-        },
-        {
-          id: "tx_003",
-          user: {
-            id: "user_001",
-            firstName: "John",
-            lastName: "Doe",
-            email: "john@example.com",
-          },
-          transactionType: "DEPOSIT",
-          amount: 25000,
-          currency: "USD",
-          method: "WIRE_TRANSFER",
-          status: "COMPLETED",
-          receiptUrl: null,
-          blockchainTxId: null,
-          bankReference: "WIRE2024003",
-          adminNote: "Verified and approved",
-          processedBy: "admin@coinshares.app",
-          processedAt: new Date("2024-02-18T14:00:00").toISOString(),
-          createdAt: new Date("2024-02-18T10:00:00").toISOString(),
-          updatedAt: new Date("2024-02-18T14:00:00").toISOString(),
-        },
-      ];
-
-      return NextResponse.json({ transactions: mockTransactions });
-    }
-
+    // Return empty array if no transactions - no mock data to avoid confusion
     return NextResponse.json({ transactions });
   } catch (error) {
     console.error("Error fetching transactions:", error);
@@ -138,12 +65,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const parsedAmount = parseFloat(amount);
+
     // Create transaction and auto-complete it (admin added)
     const transaction = await prisma.transaction.create({
       data: {
         userId,
         transactionType,
-        amount: parseFloat(amount),
+        amount: parsedAmount,
         currency,
         method,
         status: "COMPLETED",
@@ -162,6 +91,118 @@ export async function POST(request: NextRequest) {
             email: true,
           },
         },
+      },
+    });
+
+    // Update portfolio cash balance
+    let portfolio = await prisma.portfolio.findUnique({
+      where: { userId },
+    });
+
+    if (!portfolio) {
+      portfolio = await prisma.portfolio.create({
+        data: {
+          userId,
+          totalValue: 0,
+          cryptoValue: 0,
+          stockValue: 0,
+          cashValue: 0,
+          totalInvested: 0,
+          totalProfitLoss: 0,
+        },
+      });
+    }
+
+    // Calculate the change amount (positive for deposit, negative for withdrawal)
+    const changeAmount = transactionType === "DEPOSIT" ? parsedAmount : -parsedAmount;
+
+    // Update or create cash holding
+    const cashSymbol = currency.toUpperCase();
+    const existingCashHolding = await prisma.holding.findFirst({
+      where: {
+        portfolioId: portfolio.id,
+        symbol: cashSymbol,
+        assetType: "CASH",
+      },
+    });
+
+    if (existingCashHolding) {
+      const newQuantity = Number(existingCashHolding.quantity) + changeAmount;
+
+      if (newQuantity <= 0) {
+        // Remove cash holding if balance goes to 0 or below
+        await prisma.holding.delete({
+          where: { id: existingCashHolding.id },
+        });
+      } else {
+        await prisma.holding.update({
+          where: { id: existingCashHolding.id },
+          data: {
+            quantity: newQuantity,
+            totalValue: newQuantity,
+            lastPriceUpdate: new Date(),
+          },
+        });
+      }
+    } else if (changeAmount > 0) {
+      // Create new cash holding only for deposits
+      // Map currency symbols to professional names
+      const currencyNames: Record<string, string> = {
+        USD: "US Dollar",
+        EUR: "Euro",
+        GBP: "British Pound",
+        CHF: "Swiss Franc",
+        JPY: "Japanese Yen",
+        AUD: "Australian Dollar",
+        CAD: "Canadian Dollar",
+      };
+      const cashName = currencyNames[cashSymbol] || `${cashSymbol} Cash`;
+
+      await prisma.holding.create({
+        data: {
+          portfolioId: portfolio.id,
+          assetType: "CASH",
+          symbol: cashSymbol,
+          name: cashName,
+          quantity: parsedAmount,
+          averageBuyPrice: 1,
+          currentPrice: 1,
+          totalValue: parsedAmount,
+          profitLoss: 0,
+          profitLossPercent: 0,
+          lastPriceUpdate: new Date(),
+        },
+      });
+    }
+
+    // Recalculate portfolio totals
+    const allHoldings = await prisma.holding.findMany({
+      where: { portfolioId: portfolio.id },
+    });
+
+    const newTotalValue = allHoldings.reduce((sum, h) => sum + Number(h.totalValue), 0);
+    const cryptoValue = allHoldings
+      .filter(h => h.assetType === "CRYPTO")
+      .reduce((sum, h) => sum + Number(h.totalValue), 0);
+    const stockValue = allHoldings
+      .filter(h => h.assetType === "STOCK")
+      .reduce((sum, h) => sum + Number(h.totalValue), 0);
+    const cashValue = allHoldings
+      .filter(h => h.assetType === "CASH")
+      .reduce((sum, h) => sum + Number(h.totalValue), 0);
+
+    // Update totalInvested only for deposits
+    const investedChange = transactionType === "DEPOSIT" ? parsedAmount : 0;
+
+    await prisma.portfolio.update({
+      where: { id: portfolio.id },
+      data: {
+        totalValue: newTotalValue,
+        cryptoValue,
+        stockValue,
+        cashValue,
+        totalInvested: { increment: investedChange },
+        lastUpdated: new Date(),
       },
     });
 
