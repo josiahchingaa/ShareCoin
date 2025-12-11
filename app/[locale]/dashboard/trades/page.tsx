@@ -17,14 +17,14 @@ import autoTable from "jspdf-autotable";
 
 interface Trade {
   id: string;
-  type: "BUY" | "SELL";
-  asset: string;
+  tradeType: "BUY" | "SELL";
+  symbol: string;
+  assetName: string;
+  assetType: "CRYPTO" | "STOCK";
   quantity: number;
   pricePerUnit: number;
-  totalAmount: number;
-  fees: number;
-  profitLoss?: number;
-  status: "PENDING" | "COMPLETED" | "CANCELLED";
+  totalValue: number;
+  adminNote?: string;
   executedAt: string;
 }
 
@@ -48,20 +48,18 @@ const exportTradesToPDF = (trades: Trade[], userName: string) => {
 
   // Prepare table data
   const tableData = trades.map(trade => [
-    trade.type,
-    trade.asset,
-    new Date(trade.executedAt).toLocaleDateString("en-US", {
+    trade.tradeType || "N/A",
+    trade.symbol || trade.assetName || "N/A",
+    trade.executedAt ? new Date(trade.executedAt).toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
-    }),
-    trade.quantity.toFixed(4),
-    `$${trade.pricePerUnit.toLocaleString()}`,
-    `$${trade.totalAmount.toLocaleString()}`,
-    trade.profitLoss !== undefined
-      ? `${trade.profitLoss >= 0 ? "+" : ""}$${trade.profitLoss.toLocaleString()}`
-      : "-",
-    trade.status,
+    }) : "N/A",
+    Number(trade.quantity || 0).toFixed(4),
+    `$${Number(trade.pricePerUnit || 0).toLocaleString()}`,
+    `$${Number(trade.totalValue || 0).toLocaleString()}`,
+    "-",
+    "COMPLETED",
   ]);
 
   // Add table
@@ -82,20 +80,12 @@ const exportTradesToPDF = (trades: Trade[], userName: string) => {
 
   // Add summary
   const finalY = (doc as any).lastAutoTable.finalY || 45;
-  const totalPL = trades
-    .filter(t => t.profitLoss !== undefined)
-    .reduce((sum, t) => sum + (t.profitLoss || 0), 0);
 
   doc.setFontSize(12);
   doc.setTextColor(0);
   doc.text(`Total Trades: ${trades.length}`, 14, finalY + 15);
-  doc.text(`Buy Orders: ${trades.filter(t => t.type === "BUY").length}`, 14, finalY + 22);
-  doc.text(`Sell Orders: ${trades.filter(t => t.type === "SELL").length}`, 14, finalY + 29);
-  doc.text(
-    `Total P/L: ${totalPL >= 0 ? "+" : ""}$${totalPL.toLocaleString()}`,
-    14,
-    finalY + 36
-  );
+  doc.text(`Buy Orders: ${trades.filter(t => t.tradeType === "BUY").length}`, 14, finalY + 22);
+  doc.text(`Sell Orders: ${trades.filter(t => t.tradeType === "SELL").length}`, 14, finalY + 29);
 
   // Save PDF
   doc.save(`CoinShares-Trades-${new Date().toISOString().split("T")[0]}.pdf`);
@@ -128,7 +118,7 @@ export default function TradesPage() {
         const response = await fetch("/api/trades");
         if (response.ok) {
           const data = await response.json();
-          setTrades(data.trades);
+          setTrades(data.trades || []);
         }
       } catch (error) {
         console.error("Failed to fetch trades:", error);
@@ -142,26 +132,29 @@ export default function TradesPage() {
     }
   }, [session]);
 
-  const filteredTrades = trades.filter((trade) => {
+  const filteredTrades = (trades || []).filter((trade) => {
+    if (!trade || !trade.id) return false;
+
+    const tradeType = trade.tradeType || "";
+    const symbol = trade.symbol || trade.assetName || "";
+
     const matchesType =
       filterType === "all" ||
-      (filterType === "buy" && trade.type === "BUY") ||
-      (filterType === "sell" && trade.type === "SELL");
+      (filterType === "buy" && tradeType === "BUY") ||
+      (filterType === "sell" && tradeType === "SELL");
 
-    const matchesStatus =
-      filterStatus === "all" || trade.status === filterStatus.toUpperCase();
+    // Note: trades don't have status in DB, they are always "completed" once recorded
+    const matchesStatus = filterStatus === "all" || filterStatus === "completed";
 
     const matchesSearch =
       searchTerm === "" ||
-      trade.asset.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      trade.id.toLowerCase().includes(searchTerm.toLowerCase());
+      symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (trade.id || "").toLowerCase().includes(searchTerm.toLowerCase());
 
     return matchesType && matchesStatus && matchesSearch;
   });
 
-  const totalProfitLoss = trades
-    .filter((t) => t.profitLoss !== undefined)
-    .reduce((sum, t) => sum + (t.profitLoss || 0), 0);
+  const totalTradeValue = (trades || []).reduce((sum, t) => sum + Number(t?.totalValue || 0), 0);
 
   if (status === "loading" || loading) {
     return (
@@ -292,12 +285,12 @@ export default function TradesPage() {
                         <div className="flex items-center gap-3">
                           <div
                             className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                              trade.type === "BUY"
+                              trade.tradeType === "BUY"
                                 ? "bg-accent-green/20"
                                 : "bg-accent-red/20"
                             }`}
                           >
-                            {trade.type === "BUY" ? (
+                            {trade.tradeType === "BUY" ? (
                               <TrendingUp className="w-5 h-5 text-accent-green" />
                             ) : (
                               <TrendingDown className="w-5 h-5 text-accent-red" />
@@ -305,12 +298,12 @@ export default function TradesPage() {
                           </div>
                           <span
                             className={`font-medium ${
-                              trade.type === "BUY"
+                              trade.tradeType === "BUY"
                                 ? "text-accent-green"
                                 : "text-accent-red"
                             }`}
                           >
-                            {t(trade.type.toLowerCase())}
+                            {t((trade.tradeType || "buy").toLowerCase())}
                           </span>
                         </div>
                       </td>
@@ -318,59 +311,38 @@ export default function TradesPage() {
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-accent-gold/20 flex items-center justify-center">
                             <span className="text-accent-gold font-semibold text-xs">
-                              {trade.asset.substring(0, 2)}
+                              {(trade.symbol || "??").substring(0, 2)}
                             </span>
                           </div>
                           <span className="text-text-primary font-medium">
-                            {trade.asset}
+                            {trade.symbol || trade.assetName || "Unknown"}
                           </span>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-text-secondary text-sm">
-                        {new Date(trade.executedAt).toLocaleDateString("en-US", {
+                        {trade.executedAt ? new Date(trade.executedAt).toLocaleDateString("en-US", {
                           year: "numeric",
                           month: "short",
                           day: "numeric",
                           hour: "2-digit",
                           minute: "2-digit",
-                        })}
+                        }) : "N/A"}
                       </td>
                       <td className="px-6 py-4 text-right text-text-primary">
-                        {trade.quantity.toFixed(4)}
+                        {Number(trade.quantity || 0).toFixed(4)}
                       </td>
                       <td className="px-6 py-4 text-right text-text-primary">
-                        ${trade.pricePerUnit.toLocaleString()}
+                        ${Number(trade.pricePerUnit || 0).toLocaleString()}
                       </td>
                       <td className="px-6 py-4 text-right text-text-primary font-semibold">
-                        ${trade.totalAmount.toLocaleString()}
+                        ${Number(trade.totalValue || 0).toLocaleString()}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        {trade.profitLoss !== undefined ? (
-                          <span
-                            className={`font-medium ${
-                              trade.profitLoss >= 0
-                                ? "text-accent-green"
-                                : "text-accent-red"
-                            }`}
-                          >
-                            {trade.profitLoss >= 0 ? "+" : ""}$
-                            {trade.profitLoss.toLocaleString()}
-                          </span>
-                        ) : (
-                          <span className="text-text-secondary">-</span>
-                        )}
+                        <span className="text-text-secondary">-</span>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <span
-                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                            trade.status === "COMPLETED"
-                              ? "bg-accent-green/20 text-accent-green"
-                              : trade.status === "PENDING"
-                              ? "bg-accent-gold/20 text-accent-gold"
-                              : "bg-accent-red/20 text-accent-red"
-                          }`}
-                        >
-                          {t(trade.status.toLowerCase())}
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-accent-green/20 text-accent-green">
+                          {t("completed")}
                         </span>
                       </td>
                     </tr>
@@ -395,33 +367,28 @@ export default function TradesPage() {
           <div className="bg-background-secondary border border-border rounded-xl p-6">
             <div className="text-text-secondary text-sm mb-1">Total Trades</div>
             <div className="text-2xl font-bold text-text-primary">
-              {trades.length}
+              {(trades || []).length}
             </div>
           </div>
 
           <div className="bg-background-secondary border border-border rounded-xl p-6">
             <div className="text-text-secondary text-sm mb-1">Buy Orders</div>
             <div className="text-2xl font-bold text-accent-green">
-              {trades.filter((t) => t.type === "BUY").length}
+              {(trades || []).filter((t) => t?.tradeType === "BUY").length}
             </div>
           </div>
 
           <div className="bg-background-secondary border border-border rounded-xl p-6">
             <div className="text-text-secondary text-sm mb-1">Sell Orders</div>
             <div className="text-2xl font-bold text-accent-red">
-              {trades.filter((t) => t.type === "SELL").length}
+              {(trades || []).filter((t) => t?.tradeType === "SELL").length}
             </div>
           </div>
 
           <div className="bg-background-secondary border border-border rounded-xl p-6">
-            <div className="text-text-secondary text-sm mb-1">Total P/L</div>
-            <div
-              className={`text-2xl font-bold ${
-                totalProfitLoss >= 0 ? "text-accent-green" : "text-accent-red"
-              }`}
-            >
-              {totalProfitLoss >= 0 ? "+" : ""}$
-              {totalProfitLoss.toLocaleString()}
+            <div className="text-text-secondary text-sm mb-1">Total Volume</div>
+            <div className="text-2xl font-bold text-accent-gold">
+              ${totalTradeValue.toLocaleString()}
             </div>
           </div>
         </div>

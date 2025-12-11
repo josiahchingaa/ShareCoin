@@ -15,12 +15,14 @@ import {
 
 interface Transaction {
   id: string;
-  type: "DEPOSIT" | "WITHDRAWAL";
+  transactionType: "DEPOSIT" | "WITHDRAWAL";
   amount: number;
-  status: "PENDING" | "COMPLETED" | "REJECTED";
+  status: "PENDING" | "COMPLETED" | "FAILED" | "CANCELLED";
   createdAt: string;
   processedAt: string | null;
-  notes: string | null;
+  adminNote: string | null;
+  currency: string;
+  method: string;
 }
 
 export default function TransactionsPage() {
@@ -69,19 +71,24 @@ export default function TransactionsPage() {
     }
   }, [session]);
 
-  const filteredTransactions = transactions.filter((tx) => {
+  const filteredTransactions = (transactions || []).filter((tx) => {
+    if (!tx || !tx.id) return false;
+
+    const txType = tx.transactionType || "";
+    const txStatus = tx.status || "";
+
     const matchesType =
       filterType === "all" ||
-      (filterType === "deposit" && tx.type === "DEPOSIT") ||
-      (filterType === "withdrawal" && tx.type === "WITHDRAWAL");
+      (filterType === "deposit" && txType === "DEPOSIT") ||
+      (filterType === "withdrawal" && txType === "WITHDRAWAL");
 
     const matchesStatus =
-      filterStatus === "all" || tx.status === filterStatus.toUpperCase();
+      filterStatus === "all" || txStatus === filterStatus.toUpperCase();
 
     const matchesSearch =
       searchTerm === "" ||
-      tx.amount.toString().includes(searchTerm) ||
-      tx.id.toLowerCase().includes(searchTerm.toLowerCase());
+      (tx.amount?.toString() || "").includes(searchTerm) ||
+      (tx.id || "").toLowerCase().includes(searchTerm.toLowerCase());
 
     return matchesType && matchesStatus && matchesSearch;
   });
@@ -194,7 +201,7 @@ export default function TransactionsPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {filteredTransactions.length > 0 ? (
-                  filteredTransactions.filter(tx => tx && tx.id && tx.type).map((tx) => (
+                  filteredTransactions.map((tx) => (
                     <tr
                       key={tx.id}
                       className="hover:bg-background-primary transition-colors"
@@ -203,19 +210,19 @@ export default function TransactionsPage() {
                         <div className="flex items-center gap-3">
                           <div
                             className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                              tx.type === "DEPOSIT"
+                              tx.transactionType === "DEPOSIT"
                                 ? "bg-accent-green/20"
                                 : "bg-accent-red/20"
                             }`}
                           >
-                            {tx.type === "DEPOSIT" ? (
+                            {tx.transactionType === "DEPOSIT" ? (
                               <ArrowDownCircle className="w-5 h-5 text-accent-green" />
                             ) : (
                               <ArrowUpCircle className="w-5 h-5 text-accent-red" />
                             )}
                           </div>
                           <span className="text-text-primary font-medium">
-                            {t(tx.type.toLowerCase())}
+                            {t((tx.transactionType || "deposit").toLowerCase())}
                           </span>
                         </div>
                       </td>
@@ -230,13 +237,13 @@ export default function TransactionsPage() {
                       </td>
                       <td
                         className={`px-6 py-4 text-right font-semibold ${
-                          tx.type === "DEPOSIT"
+                          tx.transactionType === "DEPOSIT"
                             ? "text-accent-green"
                             : "text-accent-red"
                         }`}
                       >
-                        {tx.type === "DEPOSIT" ? "+" : "-"}$
-                        {tx.amount ? tx.amount.toLocaleString() : '0'}
+                        {tx.transactionType === "DEPOSIT" ? "+" : "-"}$
+                        {tx.amount ? Number(tx.amount).toLocaleString() : '0'}
                       </td>
                       <td className="px-6 py-4 text-center">
                         <span
@@ -248,11 +255,11 @@ export default function TransactionsPage() {
                               : "bg-accent-red/20 text-accent-red"
                           }`}
                         >
-                          {t(tx.status.toLowerCase())}
+                          {t((tx.status || "pending").toLowerCase())}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-text-secondary text-sm">
-                        {tx.notes || "-"}
+                        {tx.adminNote || "-"}
                       </td>
                     </tr>
                   ))
@@ -279,11 +286,11 @@ export default function TransactionsPage() {
             </div>
             <div className="text-2xl font-bold text-accent-green">
               $
-              {transactions
+              {(transactions || [])
                 .filter(
-                  (tx) => tx.type === "DEPOSIT" && tx.status === "COMPLETED"
+                  (tx) => tx?.transactionType === "DEPOSIT" && tx?.status === "COMPLETED"
                 )
-                .reduce((sum, tx) => sum + tx.amount, 0)
+                .reduce((sum, tx) => sum + Number(tx?.amount || 0), 0)
                 .toLocaleString()}
             </div>
           </div>
@@ -294,11 +301,11 @@ export default function TransactionsPage() {
             </div>
             <div className="text-2xl font-bold text-accent-red">
               $
-              {transactions
+              {(transactions || [])
                 .filter(
-                  (tx) => tx.type === "WITHDRAWAL" && tx.status === "COMPLETED"
+                  (tx) => tx?.transactionType === "WITHDRAWAL" && tx?.status === "COMPLETED"
                 )
-                .reduce((sum, tx) => sum + tx.amount, 0)
+                .reduce((sum, tx) => sum + Number(tx?.amount || 0), 0)
                 .toLocaleString()}
             </div>
           </div>
@@ -308,7 +315,7 @@ export default function TransactionsPage() {
               Pending Transactions
             </div>
             <div className="text-2xl font-bold text-accent-gold">
-              {transactions.filter((tx) => tx.status === "PENDING").length}
+              {(transactions || []).filter((tx) => tx?.status === "PENDING").length}
             </div>
           </div>
         </div>
