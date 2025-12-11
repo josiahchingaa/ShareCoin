@@ -2,6 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState, useRef, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import Sparkline from "@/components/ui/Sparkline";
@@ -12,7 +13,18 @@ import {
   Grid3x3,
   List,
   ChevronDown,
+  ChevronLeft,
   Loader2,
+  TrendingUp,
+  TrendingDown,
+  Home,
+  History,
+  Settings,
+  Download,
+  X,
+  Filter,
+  ArrowUpRight,
+  ArrowDownRight,
 } from "lucide-react";
 
 interface WatchlistAsset {
@@ -456,10 +468,39 @@ export default function WatchlistPageNew() {
     "Commodities",
   ];
 
+  // Mobile skeleton
+  const MobileSkeleton = () => (
+    <div className="min-h-screen bg-[#0A0A0A]">
+      <div className="sticky top-0 z-40 bg-[#0A0A0A]/95 h-14 border-b border-[#1A1A1A]" />
+      <div className="px-4 py-4 space-y-3">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div key={i} className="bg-[#141414] rounded-2xl p-4 border border-[#262626] animate-pulse">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-[#262626] rounded-full" />
+              <div className="flex-1">
+                <div className="h-4 w-16 bg-[#262626] rounded mb-2" />
+                <div className="h-3 w-24 bg-[#262626] rounded" />
+              </div>
+              <div className="text-right">
+                <div className="h-5 w-20 bg-[#262626] rounded mb-2" />
+                <div className="h-3 w-12 bg-[#262626] rounded ml-auto" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   if (status === "loading" || loading) {
     return (
       <DashboardLayout>
-        <div className="min-h-screen flex items-center justify-center">
+        {/* Mobile Loading */}
+        <div className="lg:hidden">
+          <MobileSkeleton />
+        </div>
+        {/* Desktop Loading */}
+        <div className="hidden lg:flex min-h-screen items-center justify-center">
           <div className="text-text-primary text-xl">Loading...</div>
         </div>
       </DashboardLayout>
@@ -472,7 +513,246 @@ export default function WatchlistPageNew() {
 
   return (
     <DashboardLayout>
-      <div className="p-4 lg:p-8">
+      {/* ==================== MOBILE VIEW ==================== */}
+      <div className="lg:hidden min-h-screen bg-[#0A0A0A] pb-[100px]">
+        {/* Mobile Header */}
+        <div className="sticky top-0 z-40 bg-[#0A0A0A]/95 backdrop-blur-xl border-b border-[#1A1A1A]">
+          <div className="flex items-center justify-between px-4 h-14">
+            <button
+              onClick={() => router.back()}
+              className="w-10 h-10 rounded-full bg-[#1A1A1A] flex items-center justify-center"
+            >
+              <ChevronLeft className="w-5 h-5 text-white" />
+            </button>
+            <h1 className="text-lg font-semibold text-white">Watchlist</h1>
+            <div className="w-10 h-10 rounded-full bg-[#1A1A1A] flex items-center justify-center">
+              <span className="text-xs font-bold text-[#00FF87]">{ALL_ASSETS.length}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Search Bar */}
+        <div className="px-4 pt-4 pb-3">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#808080]" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search assets..."
+              className="w-full pl-12 pr-12 py-3 bg-[#141414] border border-[#262626] rounded-2xl text-white placeholder-[#808080] focus:outline-none focus:border-[#00FF87] transition-colors"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-4 top-1/2 transform -translate-y-1/2"
+              >
+                <X className="w-5 h-5 text-[#808080]" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Filter Chips - Horizontal Scroll */}
+        <div className="px-4 pb-4">
+          <div className="flex gap-2 overflow-x-auto hide-scrollbar">
+            {filterTabs.map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setActiveFilter(filter)}
+                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  activeFilter === filter
+                    ? "bg-[#00FF87] text-black"
+                    : "bg-[#141414] text-[#B3B3B3] border border-[#262626]"
+                }`}
+              >
+                {filter}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Assets List - Mobile Cards */}
+        <div className="px-4 space-y-3">
+          {displayedAssets.length > 0 ? (
+            displayedAssets.map((asset) => {
+              const isPositive = asset.changePercent >= 0;
+              const isFav = asset.isFavorite || favoriteSymbols.has(asset.symbol);
+
+              return (
+                <div
+                  key={asset.id}
+                  className="bg-[#141414] rounded-2xl p-4 border border-[#262626] active:scale-[0.98] transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    {/* Asset Icon */}
+                    <div className="w-12 h-12 rounded-full bg-[#1A1A1A] border border-[#262626] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {asset.logoUrl ? (
+                        <img
+                          src={asset.logoUrl}
+                          alt={asset.name}
+                          className="w-8 h-8 rounded-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <span className="text-sm font-bold text-[#00FF87]">
+                          {asset.symbol.substring(0, 2)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Asset Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-semibold">{asset.symbol}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          asset.assetType === 'CRYPTO'
+                            ? 'bg-purple-500/20 text-purple-400'
+                            : asset.assetType === 'COMMODITY'
+                            ? 'bg-amber-500/20 text-amber-400'
+                            : 'bg-blue-500/20 text-blue-400'
+                        }`}>
+                          {asset.assetType}
+                        </span>
+                      </div>
+                      <p className="text-[#808080] text-sm truncate">{asset.name}</p>
+                    </div>
+
+                    {/* Price & Change */}
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-white font-bold">
+                        ${asset.currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <div className={`flex items-center justify-end gap-1 ${
+                        isPositive ? 'text-[#00FF87]' : 'text-[#FF4444]'
+                      }`}>
+                        {isPositive ? (
+                          <ArrowUpRight className="w-3 h-3" />
+                        ) : (
+                          <ArrowDownRight className="w-3 h-3" />
+                        )}
+                        <span className="text-sm font-medium">
+                          {isPositive ? '+' : ''}{asset.changePercent.toFixed(2)}%
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Favorite */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite(asset.symbol);
+                      }}
+                      className="p-2 -mr-2"
+                    >
+                      <Star
+                        className={`w-5 h-5 transition-colors ${
+                          isFav ? 'text-[#00FF87] fill-[#00FF87]' : 'text-[#404040]'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Mini Sparkline */}
+                  {asset.sparklineData && (
+                    <div className="mt-3 pt-3 border-t border-[#262626]">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div>
+                            <p className="text-[10px] text-[#808080] uppercase">Sentiment</p>
+                            <p className={`text-sm font-medium ${
+                              asset.sentiment && asset.sentiment > 50 ? 'text-[#00FF87]' : 'text-[#FF4444]'
+                            }`}>
+                              {asset.sentiment}% {asset.sentimentLabel}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="w-20">
+                          <Sparkline
+                            data={asset.sparklineData}
+                            color={isPositive ? "green" : "red"}
+                            width={80}
+                            height={24}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16">
+              <div className="w-20 h-20 rounded-full bg-[#141414] flex items-center justify-center mb-4">
+                <Search className="w-10 h-10 text-[#404040]" />
+              </div>
+              <h3 className="text-lg font-medium text-white mb-2">No assets found</h3>
+              <p className="text-[#808080] text-center text-sm max-w-[250px]">
+                Try adjusting your search or filters
+              </p>
+              {(searchQuery || activeFilter !== 'All') && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setActiveFilter('All');
+                  }}
+                  className="mt-4 px-6 py-2 bg-[#00FF87] text-black font-medium rounded-full"
+                >
+                  Clear Filters
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Load More */}
+        <div ref={loadMoreRef} className="py-8 flex justify-center">
+          {loadingMore && (
+            <div className="flex items-center gap-2 text-[#808080]">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>Loading more...</span>
+            </div>
+          )}
+          {!hasMore && displayedAssets.length > 0 && (
+            <p className="text-[#808080] text-sm">
+              All {displayedAssets.length} assets loaded
+            </p>
+          )}
+        </div>
+
+        {/* Mobile Bottom Navigation */}
+        <nav className="fixed bottom-0 left-0 right-0 bg-[#0A0A0A] border-t border-white/[0.08] z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+          <div className="flex items-center justify-around py-2 px-2">
+            <Link href="/dashboard" className="flex flex-col items-center gap-1 py-2 px-4">
+              <Home className="w-5 h-5 text-text-tertiary" />
+              <span className="text-[10px] font-medium text-text-tertiary">Home</span>
+            </Link>
+            <Link href="/dashboard/trades" className="flex flex-col items-center gap-1 py-2 px-4">
+              <TrendingUp className="w-5 h-5 text-text-tertiary" />
+              <span className="text-[10px] font-medium text-text-tertiary">Trades</span>
+            </Link>
+            <Link
+              href="/dashboard/deposit"
+              className="flex items-center justify-center w-12 h-12 -mt-4 rounded-xl bg-gradient-to-br from-accent-green to-emerald-500 shadow-lg shadow-accent-green/30"
+            >
+              <Download className="w-5 h-5 text-background-main" />
+            </Link>
+            <Link href="/dashboard/transactions" className="flex flex-col items-center gap-1 py-2 px-4">
+              <History className="w-5 h-5 text-text-tertiary" />
+              <span className="text-[10px] font-medium text-text-tertiary">History</span>
+            </Link>
+            <Link href="/dashboard/settings" className="flex flex-col items-center gap-1 py-2 px-4">
+              <Settings className="w-5 h-5 text-text-tertiary" />
+              <span className="text-[10px] font-medium text-text-tertiary">Settings</span>
+            </Link>
+          </div>
+        </nav>
+      </div>
+
+      {/* ==================== DESKTOP VIEW ==================== */}
+      <div className="hidden lg:block p-4 lg:p-8">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div>
@@ -715,6 +995,17 @@ export default function WatchlistPageNew() {
           </div>
         )}
       </div>
+
+      {/* Custom Styles */}
+      <style jsx global>{`
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
     </DashboardLayout>
   );
 }

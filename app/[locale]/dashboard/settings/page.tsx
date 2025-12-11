@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import ReactFlagsSelect from "react-flags-select";
@@ -21,6 +22,14 @@ import {
   Calendar,
   Globe,
   Lock,
+  ChevronLeft,
+  ChevronRight,
+  Home,
+  History,
+  Settings,
+  Download,
+  TrendingUp,
+  Save,
 } from "lucide-react";
 
 type TabType = "profile" | "security" | "kyc";
@@ -327,10 +336,31 @@ export default function SettingsPage() {
     });
   };
 
+  // Mobile skeleton
+  const MobileSkeleton = () => (
+    <div className="min-h-screen bg-[#0A0A0A]">
+      <div className="sticky top-0 z-40 bg-[#0A0A0A]/95 h-14 border-b border-[#1A1A1A]" />
+      <div className="px-4 py-4 space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="bg-[#141414] rounded-2xl p-4 border border-[#262626] animate-pulse">
+            <div className="h-5 w-32 bg-[#262626] rounded mb-3" />
+            <div className="h-4 w-full bg-[#262626] rounded mb-2" />
+            <div className="h-4 w-3/4 bg-[#262626] rounded" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   if (status === "loading") {
     return (
       <DashboardLayout>
-        <div className="min-h-screen flex items-center justify-center">
+        {/* Mobile Loading */}
+        <div className="lg:hidden">
+          <MobileSkeleton />
+        </div>
+        {/* Desktop Loading */}
+        <div className="hidden lg:flex min-h-screen items-center justify-center">
           <div className="text-text-primary text-xl">{tCommon("loading")}</div>
         </div>
       </DashboardLayout>
@@ -341,9 +371,461 @@ export default function SettingsPage() {
     return null;
   }
 
+  // Menu items for mobile
+  const menuItems = [
+    { id: 'profile', label: t("personalInfo"), icon: User, description: 'Manage your personal details' },
+    { id: 'security', label: t("security"), icon: Shield, description: 'Password and security settings' },
+    { id: 'kyc', label: t("kyc"), icon: FileText, description: 'Identity verification documents' },
+  ];
+
   return (
     <DashboardLayout>
-      <div className="p-4 lg:p-8 max-w-5xl mx-auto">
+      {/* ==================== MOBILE VIEW ==================== */}
+      <div className="lg:hidden min-h-screen bg-[#0A0A0A] pb-[100px]">
+        {/* Mobile Header */}
+        <div className="sticky top-0 z-40 bg-[#0A0A0A]/95 backdrop-blur-xl border-b border-[#1A1A1A]">
+          <div className="flex items-center justify-between px-4 h-14">
+            <button
+              onClick={() => router.back()}
+              className="w-10 h-10 rounded-full bg-[#1A1A1A] flex items-center justify-center"
+            >
+              <ChevronLeft className="w-5 h-5 text-white" />
+            </button>
+            <h1 className="text-lg font-semibold text-white">{t("title")}</h1>
+            <div className="w-10" />
+          </div>
+        </div>
+
+        {/* KYC Status Banner */}
+        <div className="px-4 pt-4">
+          <div className={`rounded-2xl p-4 border ${
+            kycStatus === 'APPROVED'
+              ? 'bg-[#00FF87]/10 border-[#00FF87]/30'
+              : kycStatus === 'PENDING'
+              ? 'bg-amber-500/10 border-amber-500/30'
+              : 'bg-red-500/10 border-red-500/30'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {kycStatus === 'APPROVED' ? (
+                  <CheckCircle className="w-6 h-6 text-[#00FF87]" />
+                ) : kycStatus === 'PENDING' ? (
+                  <Clock className="w-6 h-6 text-amber-500" />
+                ) : (
+                  <XCircle className="w-6 h-6 text-red-500" />
+                )}
+                <div>
+                  <p className={`font-semibold ${
+                    kycStatus === 'APPROVED' ? 'text-[#00FF87]' : kycStatus === 'PENDING' ? 'text-amber-500' : 'text-red-500'
+                  }`}>
+                    KYC {kycStatus === 'APPROVED' ? 'Verified' : kycStatus === 'PENDING' ? 'Under Review' : 'Required'}
+                  </p>
+                  <p className="text-xs text-[#808080]">
+                    {kycStatus === 'APPROVED' ? 'Full access enabled' : 'Complete verification to unlock features'}
+                  </p>
+                </div>
+              </div>
+              {kycStatus !== 'APPROVED' && (
+                <button
+                  onClick={() => setActiveTab('kyc')}
+                  className="px-3 py-1.5 bg-[#00FF87] text-black text-xs font-semibold rounded-full"
+                >
+                  Verify
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Settings Menu */}
+        <div className="px-4 py-4 space-y-3">
+          {menuItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id as TabType)}
+              className={`w-full bg-[#141414] rounded-2xl p-4 border text-left active:scale-[0.98] transition-all flex items-center justify-between ${
+                activeTab === item.id ? 'border-[#00FF87]' : 'border-[#262626]'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                  activeTab === item.id ? 'bg-[#00FF87]/20' : 'bg-[#1A1A1A]'
+                }`}>
+                  <item.icon className={`w-5 h-5 ${
+                    activeTab === item.id ? 'text-[#00FF87]' : 'text-[#808080]'
+                  }`} />
+                </div>
+                <div>
+                  <p className="text-white font-medium">{item.label}</p>
+                  <p className="text-[#808080] text-xs">{item.description}</p>
+                </div>
+              </div>
+              <ChevronRight className={`w-5 h-5 ${
+                activeTab === item.id ? 'text-[#00FF87]' : 'text-[#404040]'
+              }`} />
+            </button>
+          ))}
+        </div>
+
+        {/* Active Tab Content */}
+        <div className="px-4">
+          {message && (
+            <div
+              className={`mb-4 p-4 rounded-2xl ${
+                message.type === "success"
+                  ? "bg-[#00FF87]/20 text-[#00FF87] border border-[#00FF87]/30"
+                  : "bg-red-500/20 text-red-500 border border-red-500/30"
+              }`}
+            >
+              {message.text}
+            </div>
+          )}
+
+          {/* Profile Tab - Mobile */}
+          {activeTab === "profile" && (
+            <form onSubmit={handleProfileUpdate} className="space-y-4">
+              {/* Personal Details */}
+              <div className="bg-[#141414] rounded-2xl p-4 border border-[#262626]">
+                <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                  <User className="w-4 h-4 text-[#00FF87]" />
+                  Personal Details
+                </h3>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-[#808080] mb-1">First Name</label>
+                      <input
+                        type="text"
+                        value={profileData.firstName}
+                        onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
+                        className="w-full px-3 py-2.5 bg-[#0A0A0A] border border-[#262626] rounded-xl text-white text-sm focus:outline-none focus:border-[#00FF87]"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-[#808080] mb-1">Last Name</label>
+                      <input
+                        type="text"
+                        value={profileData.lastName}
+                        onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
+                        className="w-full px-3 py-2.5 bg-[#0A0A0A] border border-[#262626] rounded-xl text-white text-sm focus:outline-none focus:border-[#00FF87]"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[#808080] mb-1">Date of Birth</label>
+                    <input
+                      type="date"
+                      value={profileData.dateOfBirth}
+                      onChange={(e) => setProfileData({ ...profileData, dateOfBirth: e.target.value })}
+                      className="w-full px-3 py-2.5 bg-[#0A0A0A] border border-[#262626] rounded-xl text-white text-sm focus:outline-none focus:border-[#00FF87]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact */}
+              <div className="bg-[#141414] rounded-2xl p-4 border border-[#262626]">
+                <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-[#00FF87]" />
+                  Contact
+                </h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-[#808080] mb-1">Email (locked)</label>
+                    <input
+                      type="email"
+                      value={profileData.email}
+                      disabled
+                      className="w-full px-3 py-2.5 bg-[#1A1A1A] border border-[#262626] rounded-xl text-[#808080] text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[#808080] mb-1">Phone</label>
+                    <input
+                      type="tel"
+                      value={profileData.phone}
+                      onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                      placeholder="+1 234 567 8900"
+                      className="w-full px-3 py-2.5 bg-[#0A0A0A] border border-[#262626] rounded-xl text-white text-sm focus:outline-none focus:border-[#00FF87]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Address */}
+              <div className="bg-[#141414] rounded-2xl p-4 border border-[#262626]">
+                <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-[#00FF87]" />
+                  Address
+                </h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-[#808080] mb-1">Street Address</label>
+                    <input
+                      type="text"
+                      value={profileData.address}
+                      onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
+                      placeholder="123 Main Street"
+                      className="w-full px-3 py-2.5 bg-[#0A0A0A] border border-[#262626] rounded-xl text-white text-sm focus:outline-none focus:border-[#00FF87]"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-[#808080] mb-1">City</label>
+                      <input
+                        type="text"
+                        value={profileData.city}
+                        onChange={(e) => setProfileData({ ...profileData, city: e.target.value })}
+                        className="w-full px-3 py-2.5 bg-[#0A0A0A] border border-[#262626] rounded-xl text-white text-sm focus:outline-none focus:border-[#00FF87]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-[#808080] mb-1">Postal Code</label>
+                      <input
+                        type="text"
+                        value={profileData.postalCode}
+                        onChange={(e) => setProfileData({ ...profileData, postalCode: e.target.value })}
+                        className="w-full px-3 py-2.5 bg-[#0A0A0A] border border-[#262626] rounded-xl text-white text-sm focus:outline-none focus:border-[#00FF87]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Employment */}
+              <div className="bg-[#141414] rounded-2xl p-4 border border-[#262626]">
+                <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-[#00FF87]" />
+                  Employment
+                </h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-[#808080] mb-1">Employment Status</label>
+                    <select
+                      value={profileData.employmentStatus}
+                      onChange={(e) => setProfileData({ ...profileData, employmentStatus: e.target.value })}
+                      className="w-full px-3 py-2.5 bg-[#0A0A0A] border border-[#262626] rounded-xl text-white text-sm focus:outline-none focus:border-[#00FF87]"
+                    >
+                      <option value="">Select status</option>
+                      {EMPLOYMENT_STATUS_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[#808080] mb-1">Occupation</label>
+                    <input
+                      type="text"
+                      value={profileData.occupation}
+                      onChange={(e) => setProfileData({ ...profileData, occupation: e.target.value })}
+                      placeholder="e.g., Software Engineer"
+                      className="w-full px-3 py-2.5 bg-[#0A0A0A] border border-[#262626] rounded-xl text-white text-sm focus:outline-none focus:border-[#00FF87]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 bg-[#00FF87] text-black font-semibold rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-50"
+              >
+                {loading ? 'Saving...' : 'Save Changes'}
+              </button>
+            </form>
+          )}
+
+          {/* Security Tab - Mobile */}
+          {activeTab === "security" && (
+            <form onSubmit={handlePasswordChange} className="space-y-4">
+              <div className="bg-[#141414] rounded-2xl p-4 border border-[#262626]">
+                <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-[#00FF87]" />
+                  Change Password
+                </h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-[#808080] mb-1">Current Password</label>
+                    <input
+                      type="password"
+                      value={passwordData.currentPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                      className="w-full px-3 py-2.5 bg-[#0A0A0A] border border-[#262626] rounded-xl text-white text-sm focus:outline-none focus:border-[#00FF87]"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[#808080] mb-1">New Password</label>
+                    <input
+                      type="password"
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                      className="w-full px-3 py-2.5 bg-[#0A0A0A] border border-[#262626] rounded-xl text-white text-sm focus:outline-none focus:border-[#00FF87]"
+                      required
+                      minLength={8}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[#808080] mb-1">Confirm New Password</label>
+                    <input
+                      type="password"
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                      className="w-full px-3 py-2.5 bg-[#0A0A0A] border border-[#262626] rounded-xl text-white text-sm focus:outline-none focus:border-[#00FF87]"
+                      required
+                      minLength={8}
+                    />
+                  </div>
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 bg-[#00FF87] text-black font-semibold rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-50"
+              >
+                {loading ? 'Updating...' : 'Update Password'}
+              </button>
+            </form>
+          )}
+
+          {/* KYC Tab - Mobile */}
+          {activeTab === "kyc" && (
+            <form onSubmit={handleKycUpload} className="space-y-4">
+              {/* Status */}
+              <div className={`rounded-2xl p-4 border ${
+                kycStatus === 'APPROVED'
+                  ? 'bg-[#00FF87]/10 border-[#00FF87]/30'
+                  : kycStatus === 'PENDING'
+                  ? 'bg-amber-500/10 border-amber-500/30'
+                  : 'bg-[#141414] border-[#262626]'
+              }`}>
+                <div className="flex items-center gap-3 mb-2">
+                  {kycStatus === 'APPROVED' ? (
+                    <CheckCircle className="w-6 h-6 text-[#00FF87]" />
+                  ) : kycStatus === 'PENDING' ? (
+                    <Clock className="w-6 h-6 text-amber-500" />
+                  ) : (
+                    <FileText className="w-6 h-6 text-[#808080]" />
+                  )}
+                  <span className={`font-semibold ${
+                    kycStatus === 'APPROVED' ? 'text-[#00FF87]' : kycStatus === 'PENDING' ? 'text-amber-500' : 'text-white'
+                  }`}>
+                    {kycStatus === 'APPROVED' ? 'Verified' : kycStatus === 'PENDING' ? 'Under Review' : 'Not Verified'}
+                  </span>
+                </div>
+                <p className="text-[#808080] text-sm">
+                  {kycStatus === 'APPROVED'
+                    ? 'Your identity has been verified.'
+                    : kycStatus === 'PENDING'
+                    ? 'Your documents are being reviewed (1-2 business days).'
+                    : 'Upload your documents to verify your identity.'}
+                </p>
+              </div>
+
+              {/* Passport */}
+              <div className="bg-[#141414] rounded-2xl p-4 border border-[#262626]">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h4 className="text-white font-medium">Government ID</h4>
+                    <p className="text-xs text-[#808080]">Passport or national ID</p>
+                  </div>
+                  <Upload className="w-5 h-5 text-[#00FF87]" />
+                </div>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => handleFileSelect("passport", e.target.files?.[0])}
+                  className="w-full text-sm text-[#808080] file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-[#00FF87]/20 file:text-[#00FF87] file:font-medium file:text-sm"
+                />
+                {kycDocuments.passport && (
+                  <p className="mt-2 text-xs text-[#00FF87]">Selected: {kycDocuments.passport.name}</p>
+                )}
+              </div>
+
+              {/* Proof of Address */}
+              <div className="bg-[#141414] rounded-2xl p-4 border border-[#262626]">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h4 className="text-white font-medium">Proof of Address</h4>
+                    <p className="text-xs text-[#808080]">Utility bill or bank statement</p>
+                  </div>
+                  <Upload className="w-5 h-5 text-[#00FF87]" />
+                </div>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => handleFileSelect("proofOfAddress", e.target.files?.[0])}
+                  className="w-full text-sm text-[#808080] file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-[#00FF87]/20 file:text-[#00FF87] file:font-medium file:text-sm"
+                />
+                {kycDocuments.proofOfAddress && (
+                  <p className="mt-2 text-xs text-[#00FF87]">Selected: {kycDocuments.proofOfAddress.name}</p>
+                )}
+              </div>
+
+              {/* Wealth Statement */}
+              <div className="bg-[#141414] rounded-2xl p-4 border border-[#262626]">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h4 className="text-white font-medium">Wealth Statement</h4>
+                    <p className="text-xs text-[#808080]">Bank statement (optional)</p>
+                  </div>
+                  <Upload className="w-5 h-5 text-[#808080]" />
+                </div>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => handleFileSelect("wealthStatement", e.target.files?.[0])}
+                  className="w-full text-sm text-[#808080] file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-[#00FF87]/20 file:text-[#00FF87] file:font-medium file:text-sm"
+                />
+                {kycDocuments.wealthStatement && (
+                  <p className="mt-2 text-xs text-[#00FF87]">Selected: {kycDocuments.wealthStatement.name}</p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || (!kycDocuments.passport && !kycDocuments.proofOfAddress)}
+                className="w-full py-4 bg-[#00FF87] text-black font-semibold rounded-2xl active:scale-[0.98] transition-transform disabled:opacity-50"
+              >
+                {loading ? 'Uploading...' : 'Upload Documents'}
+              </button>
+            </form>
+          )}
+        </div>
+
+        {/* Mobile Bottom Navigation */}
+        <nav className="fixed bottom-0 left-0 right-0 bg-[#0A0A0A] border-t border-white/[0.08] z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+          <div className="flex items-center justify-around py-2 px-2">
+            <Link href="/dashboard" className="flex flex-col items-center gap-1 py-2 px-4">
+              <Home className="w-5 h-5 text-text-tertiary" />
+              <span className="text-[10px] font-medium text-text-tertiary">Home</span>
+            </Link>
+            <Link href="/dashboard/trades" className="flex flex-col items-center gap-1 py-2 px-4">
+              <TrendingUp className="w-5 h-5 text-text-tertiary" />
+              <span className="text-[10px] font-medium text-text-tertiary">Trades</span>
+            </Link>
+            <Link
+              href="/dashboard/deposit"
+              className="flex items-center justify-center w-12 h-12 -mt-4 rounded-xl bg-gradient-to-br from-accent-green to-emerald-500 shadow-lg shadow-accent-green/30"
+            >
+              <Download className="w-5 h-5 text-background-main" />
+            </Link>
+            <Link href="/dashboard/transactions" className="flex flex-col items-center gap-1 py-2 px-4">
+              <History className="w-5 h-5 text-text-tertiary" />
+              <span className="text-[10px] font-medium text-text-tertiary">History</span>
+            </Link>
+            <Link href="/dashboard/settings" className="flex flex-col items-center gap-1 py-2 px-4">
+              <Settings className="w-5 h-5 text-[#00FF87]" />
+              <span className="text-[10px] font-medium text-[#00FF87]">Settings</span>
+            </Link>
+          </div>
+        </nav>
+      </div>
+
+      {/* ==================== DESKTOP VIEW ==================== */}
+      <div className="hidden lg:block p-4 lg:p-8 max-w-5xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-text-primary mb-2">

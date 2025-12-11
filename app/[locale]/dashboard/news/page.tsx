@@ -2,9 +2,24 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { TrendingUp, DollarSign, Globe, Clock } from "lucide-react";
+import {
+  TrendingUp,
+  DollarSign,
+  Globe,
+  Clock,
+  ChevronLeft,
+  Home,
+  History,
+  Settings,
+  Download,
+  Newspaper,
+  RefreshCw,
+  ExternalLink,
+  Loader2,
+} from "lucide-react";
 
 interface NewsArticle {
   id: string;
@@ -217,10 +232,114 @@ export default function NewsPage() {
     rows.push(allArticles.slice(i, i + 3));
   }
 
+  const [activeCategory, setActiveCategory] = useState<string>("ALL");
+
+  const categories = [
+    { id: "ALL", label: "All", icon: Newspaper },
+    { id: "CRYPTO", label: "Crypto", icon: TrendingUp },
+    { id: "STOCKS", label: "Stocks", icon: DollarSign },
+    { id: "ECONOMY", label: "Economy", icon: Globe },
+  ];
+
+  // Filter articles by category
+  const filteredArticles = activeCategory === "ALL"
+    ? allArticles
+    : allArticles.filter(a => a.category === activeCategory);
+
+  // Mobile skeleton
+  const MobileSkeleton = () => (
+    <div className="min-h-screen bg-[#0A0A0A]">
+      <div className="sticky top-0 z-40 bg-[#0A0A0A]/95 h-14 border-b border-[#1A1A1A]" />
+      <div className="px-4 py-4 space-y-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-[#141414] rounded-2xl overflow-hidden border border-[#262626] animate-pulse">
+            <div className="h-48 bg-[#262626]" />
+            <div className="p-4">
+              <div className="h-3 w-20 bg-[#262626] rounded mb-3" />
+              <div className="h-5 w-full bg-[#262626] rounded mb-2" />
+              <div className="h-5 w-3/4 bg-[#262626] rounded mb-3" />
+              <div className="h-4 w-full bg-[#262626] rounded" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  // Mobile article card
+  const renderMobileCard = (article: NewsArticle) => (
+    <a
+      key={article.id}
+      href={article.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block bg-[#141414] rounded-2xl overflow-hidden border border-[#262626] active:scale-[0.98] transition-all"
+    >
+      {/* Image */}
+      {article.imageUrl && (
+        <div className="relative h-48 bg-[#1A1A1A] overflow-hidden">
+          <img
+            src={article.imageUrl}
+            alt={article.title}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+          {/* Category Badge */}
+          <div className="absolute top-3 left-3">
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm ${
+              article.category === 'CRYPTO'
+                ? 'bg-purple-500/80 text-white'
+                : article.category === 'STOCKS'
+                ? 'bg-blue-500/80 text-white'
+                : 'bg-amber-500/80 text-black'
+            }`}>
+              {article.category}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Content */}
+      <div className="p-4">
+        {/* Meta */}
+        <div className="flex items-center gap-2 mb-2 text-xs text-[#808080]">
+          <span className="font-medium text-[#00FF87]">{article.source}</span>
+          <span>•</span>
+          <span>{formatDate(article.publishedAt)}</span>
+        </div>
+
+        {/* Title */}
+        <h3 className="text-white font-semibold leading-tight mb-2 line-clamp-2">
+          {article.title}
+        </h3>
+
+        {/* Description */}
+        {article.description && (
+          <p className="text-sm text-[#808080] leading-relaxed line-clamp-2">
+            {article.description}
+          </p>
+        )}
+
+        {/* Read More */}
+        <div className="flex items-center gap-1 mt-3 text-[#00FF87] text-sm font-medium">
+          <span>Read more</span>
+          <ExternalLink className="w-3.5 h-3.5" />
+        </div>
+      </div>
+    </a>
+  );
+
   if (status === "loading" || loading) {
     return (
       <DashboardLayout>
-        <div className="min-h-screen flex items-center justify-center">
+        {/* Mobile Loading */}
+        <div className="lg:hidden">
+          <MobileSkeleton />
+        </div>
+        {/* Desktop Loading */}
+        <div className="hidden lg:flex min-h-screen items-center justify-center">
           <div className="text-text-primary text-xl">Loading news...</div>
         </div>
       </DashboardLayout>
@@ -233,7 +352,125 @@ export default function NewsPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-4 lg:p-8 max-w-[1600px] mx-auto">
+      {/* ==================== MOBILE VIEW ==================== */}
+      <div className="lg:hidden min-h-screen bg-[#0A0A0A] pb-[100px]">
+        {/* Mobile Header */}
+        <div className="sticky top-0 z-40 bg-[#0A0A0A]/95 backdrop-blur-xl border-b border-[#1A1A1A]">
+          <div className="flex items-center justify-between px-4 h-14">
+            <button
+              onClick={() => router.back()}
+              className="w-10 h-10 rounded-full bg-[#1A1A1A] flex items-center justify-center"
+            >
+              <ChevronLeft className="w-5 h-5 text-white" />
+            </button>
+            <h1 className="text-lg font-semibold text-white">Market News</h1>
+            <button
+              onClick={() => fetchAllNews(1)}
+              disabled={loading}
+              className="w-10 h-10 rounded-full bg-[#1A1A1A] flex items-center justify-center"
+            >
+              <RefreshCw className={`w-5 h-5 text-white ${loading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Category Tabs */}
+        <div className="px-4 py-4">
+          <div className="flex gap-2 overflow-x-auto hide-scrollbar">
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  activeCategory === cat.id
+                    ? "bg-[#00FF87] text-black"
+                    : "bg-[#141414] text-[#B3B3B3] border border-[#262626]"
+                }`}
+              >
+                <cat.icon className="w-4 h-4" />
+                {cat.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Stats Bar */}
+        <div className="px-4 pb-4">
+          <div className="flex items-center gap-4 text-sm text-[#808080]">
+            <div className="flex items-center gap-1">
+              <Clock className="w-4 h-4" />
+              <span>Live updates</span>
+            </div>
+            <span>•</span>
+            <span>{filteredArticles.length} articles</span>
+          </div>
+        </div>
+
+        {/* News List */}
+        <div className="px-4 space-y-4">
+          {filteredArticles.length > 0 ? (
+            filteredArticles.map((article) => renderMobileCard(article))
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16">
+              <div className="w-20 h-20 rounded-full bg-[#141414] flex items-center justify-center mb-4">
+                <Newspaper className="w-10 h-10 text-[#404040]" />
+              </div>
+              <h3 className="text-lg font-medium text-white mb-2">No articles found</h3>
+              <p className="text-[#808080] text-center text-sm max-w-[250px]">
+                {activeCategory !== "ALL"
+                  ? `No ${activeCategory.toLowerCase()} news available`
+                  : "No news articles available at the moment"}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Loading More */}
+        {loadingMore && (
+          <div className="py-8 flex items-center justify-center gap-2 text-[#808080]">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>Loading more...</span>
+          </div>
+        )}
+
+        {/* End of Feed */}
+        {!loading && !loadingMore && filteredArticles.length > 0 && !hasMore && (
+          <div className="py-8 text-center text-[#808080] text-sm">
+            You've reached the end
+          </div>
+        )}
+
+        {/* Mobile Bottom Navigation */}
+        <nav className="fixed bottom-0 left-0 right-0 bg-[#0A0A0A] border-t border-white/[0.08] z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+          <div className="flex items-center justify-around py-2 px-2">
+            <Link href="/dashboard" className="flex flex-col items-center gap-1 py-2 px-4">
+              <Home className="w-5 h-5 text-text-tertiary" />
+              <span className="text-[10px] font-medium text-text-tertiary">Home</span>
+            </Link>
+            <Link href="/dashboard/trades" className="flex flex-col items-center gap-1 py-2 px-4">
+              <TrendingUp className="w-5 h-5 text-text-tertiary" />
+              <span className="text-[10px] font-medium text-text-tertiary">Trades</span>
+            </Link>
+            <Link
+              href="/dashboard/deposit"
+              className="flex items-center justify-center w-12 h-12 -mt-4 rounded-xl bg-gradient-to-br from-accent-green to-emerald-500 shadow-lg shadow-accent-green/30"
+            >
+              <Download className="w-5 h-5 text-background-main" />
+            </Link>
+            <Link href="/dashboard/transactions" className="flex flex-col items-center gap-1 py-2 px-4">
+              <History className="w-5 h-5 text-text-tertiary" />
+              <span className="text-[10px] font-medium text-text-tertiary">History</span>
+            </Link>
+            <Link href="/dashboard/settings" className="flex flex-col items-center gap-1 py-2 px-4">
+              <Settings className="w-5 h-5 text-text-tertiary" />
+              <span className="text-[10px] font-medium text-text-tertiary">Settings</span>
+            </Link>
+          </div>
+        </nav>
+      </div>
+
+      {/* ==================== DESKTOP VIEW ==================== */}
+      <div className="hidden lg:block p-4 lg:p-8 max-w-[1600px] mx-auto">
         {/* Page Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-text-primary mb-2">
@@ -278,6 +515,17 @@ export default function NewsPage() {
           </div>
         )}
       </div>
+
+      {/* Custom Styles */}
+      <style jsx global>{`
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
     </DashboardLayout>
   );
 }

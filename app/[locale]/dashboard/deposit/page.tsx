@@ -18,6 +18,11 @@ import {
   CheckCircle2,
   Zap,
   Lock,
+  Home,
+  TrendingUp,
+  History,
+  Settings,
+  Download,
 } from "lucide-react";
 
 // Wallet addresses configuration
@@ -180,7 +185,7 @@ export default function DepositPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background-main relative overflow-hidden">
+    <div className="min-h-screen bg-background-main relative overflow-hidden pb-[100px] lg:pb-0">
       {/* Subtle Background Gradient */}
       <div className="fixed inset-0 pointer-events-none">
         <div
@@ -774,6 +779,34 @@ export default function DepositPage() {
           </div>
         </div>
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#0A0A0A] border-t border-white/[0.08] z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+        <div className="flex items-center justify-around py-2 px-2">
+          <Link href="/dashboard" className="flex flex-col items-center gap-1 py-2 px-4">
+            <Home className="w-5 h-5 text-text-tertiary" />
+            <span className="text-[10px] font-medium text-text-tertiary">Home</span>
+          </Link>
+          <Link href="/dashboard/trades" className="flex flex-col items-center gap-1 py-2 px-4">
+            <TrendingUp className="w-5 h-5 text-text-tertiary" />
+            <span className="text-[10px] font-medium text-text-tertiary">Trades</span>
+          </Link>
+          <Link
+            href="/dashboard/deposit"
+            className="flex items-center justify-center w-12 h-12 -mt-4 rounded-xl bg-gradient-to-br from-accent-green to-emerald-500 shadow-lg shadow-accent-green/30"
+          >
+            <Download className="w-5 h-5 text-background-main" />
+          </Link>
+          <Link href="/dashboard/transactions" className="flex flex-col items-center gap-1 py-2 px-4">
+            <History className="w-5 h-5 text-text-tertiary" />
+            <span className="text-[10px] font-medium text-text-tertiary">History</span>
+          </Link>
+          <Link href="/dashboard/settings" className="flex flex-col items-center gap-1 py-2 px-4">
+            <Settings className="w-5 h-5 text-text-tertiary" />
+            <span className="text-[10px] font-medium text-text-tertiary">Settings</span>
+          </Link>
+        </div>
+      </nav>
     </div>
   );
 }
