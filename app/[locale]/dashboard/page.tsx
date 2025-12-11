@@ -337,7 +337,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-background-main">
       {/* ==================== MOBILE VIEW ==================== */}
-      <div className="lg:hidden">
+      <div className="lg:hidden pb-24">
         {/* Premium Mobile Header */}
         <header className="sticky top-0 z-50 bg-background-main/80 backdrop-blur-xl border-b border-white/[0.06]">
           <div className="px-4 py-3 flex items-center justify-between">
