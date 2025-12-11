@@ -50,3 +50,18 @@ prisma/migrations/
 # OS
 Thumbs.db
 API_CREDENTIALS.md
+CREDENTIALS_SECURE.md
+*CREDENTIALS*.md
+*SECRETS*.md
+*.credentials
+*.secrets
+
+# Archives and temp files
+*.tar.gz
+*.backup
+.backup/
+archives/
+temp-check/
+bulk/
+nul
+fix-api-routes.ps1

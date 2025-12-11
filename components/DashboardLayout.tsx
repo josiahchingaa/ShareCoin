@@ -86,12 +86,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="p-6 border-b border-border">
-            <h1 className="text-2xl font-bold text-gradient-gold">
-              {tCommon("appName")}
-            </h1>
-            <p className="text-xs text-text-secondary mt-1">
-              {session?.user?.email}
-            </p>
+            <img
+              src="https://coinshares.com/icons/coinshares-logo-white.svg"
+              alt="CoinShares"
+              className="h-8 w-auto"
+            />
           </div>
 
           {/* Navigation Links */}
@@ -137,9 +136,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="flex-1 min-h-screen">
         {/* Mobile Header */}
         <div className="lg:hidden bg-background-secondary border-b border-border p-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gradient-gold">
-            {tCommon("appName")}
-          </h1>
+          <img
+            src="https://coinshares.com/icons/coinshares-logo-white.svg"
+            alt="CoinShares"
+            className="h-6 w-auto"
+          />
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="text-text-primary"

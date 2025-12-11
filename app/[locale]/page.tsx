@@ -1,5 +1,4 @@
 import { getTranslations } from 'next-intl/server';
-import { setRequestLocale } from 'next-intl/server';
 
 export default async function Home({
   params,
@@ -7,7 +6,6 @@ export default async function Home({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  setRequestLocale(locale);
 
   const t = await getTranslations('home');
 

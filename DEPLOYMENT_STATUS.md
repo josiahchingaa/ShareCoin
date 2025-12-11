@@ -166,6 +166,177 @@
 
 ---
 
+## 🚀 PRIORITY FEATURES (Next Phase)
+
+### 1. Portfolio Calculation Engine ⚠️ CRITICAL
+**Status:** Not started
+**Benefit:** Real-time P&L tracking and performance metrics
+
+**What to implement:**
+- Real-time portfolio value calculation (Cash + Holdings)
+- Total invested tracking (Deposits - Withdrawals)
+- Profit/Loss calculation (Portfolio Value - Total Invested)
+- ROI % calculation
+- Daily change tracking
+- Per-asset P&L calculation
+- Asset allocation percentages
+- Holdings value based on real-time prices from cache
+
+**Estimated time:** 4-6 hours
+
+---
+
+### 2. Crypto Deposit System ⚠️ CRITICAL
+**Status:** Not started
+**Benefit:** Customers can fund their accounts
+
+**What to implement:**
+- Admin assigns crypto wallet address to customer
+- Customer deposit page:
+  - Choose cryptocurrency (BTC, ETH, USDT, etc.)
+  - Display wallet address with copy button
+  - QR code for mobile scanning
+  - Deposit instructions
+- Admin reviews and confirms deposits manually
+- Automatic balance update after admin approval
+- Transaction status tracking (Pending → Approved/Rejected)
+
+**Estimated time:** 3-4 hours
+
+---
+
+### 3. Trade Execution Workflow ⚠️ CRITICAL
+**Status:** Partially complete (UI exists, logic missing)
+**Benefit:** Core business functionality - traders execute trades for customers
+
+**What to implement:**
+- Admin side: Create trade form
+  - Asset selection (from 146+ available assets)
+  - Trade type (BUY/SELL)
+  - Execution price
+  - Quantity
+  - Trading strategy selection
+  - Target customers (all or specific)
+- System logic:
+  - Auto-distribute trade to selected customers
+  - Update customer holdings
+  - Calculate P&L impact
+  - Create trade history records
+- Customer side:
+  - Real-time trade notifications
+  - View trade details in history
+  - See P&L impact on portfolio
+
+**Estimated time:** 6-8 hours
+
+---
+
+### 4. Withdrawal System ⚠️ CRITICAL
+**Status:** Not started
+**Benefit:** Customers can withdraw funds
+
+**What to implement:**
+- Customer withdrawal request form:
+  - Amount
+  - Cryptocurrency type
+  - Wallet address
+  - Withdrawal fee display
+- Admin review and approval workflow
+- Automatic balance deduction after approval
+- Withdrawal history tracking
+- Status updates (Pending → Approved/Rejected)
+
+**Estimated time:** 3-4 hours
+
+---
+
+### 5. ROI & Performance Tracking
+**Status:** Not started
+**Benefit:** Professional performance analytics
+
+**What to implement:**
+- Performance metrics:
+  - Total ROI (all-time)
+  - Monthly ROI
+  - Win rate % (profitable trades / total trades)
+  - Average profit per trade
+  - Sharpe ratio (risk-adjusted return)
+  - Max drawdown %
+- Comparison charts:
+  - Portfolio vs S&P 500
+  - Portfolio vs initial investment
+  - Monthly performance bar chart
+- Historical performance data (1M, 3M, 6M, 1Y, All Time)
+
+**Estimated time:** 4-5 hours
+
+---
+
+### 6. Trading Strategy Tracking
+**Status:** Not started
+**Benefit:** Show which strategies are performing best
+
+**What to implement:**
+- Strategy types:
+  - Day Trading
+  - Swing Trading
+  - Scalping
+  - Position Trading
+  - Long-term Investment
+- Link each trade to a strategy
+- Strategy performance dashboard:
+  - ROI per strategy
+  - Win rate per strategy
+  - Total trades per strategy
+  - Average profit per strategy
+- Display strategy on trade history
+
+**Estimated time:** 3-4 hours
+
+---
+
+### 7. In-App Notification System
+**Status:** Not started
+**Benefit:** Real-time updates for customers
+
+**What to implement:**
+- Notification types:
+  - Trade executed
+  - Deposit confirmed
+  - Withdrawal processed
+  - KYC status update
+  - Support ticket reply
+- Notification center:
+  - Bell icon in header with unread count
+  - Dropdown list of recent notifications
+  - Mark as read/unread
+  - Delete notifications
+  - Filter by type
+- Database storage for notifications
+
+**Estimated time:** 4-5 hours
+
+---
+
+## 📋 FUTURE DEVELOPMENTS (Phase 2 & 3)
+
+### Phase 2 (After Core Features Complete):
+- ✉️ Email notifications (Postmark integration)
+- 🔐 Two-Factor Authentication (2FA) with email
+- 📄 PDF export (statements, reports, receipts)
+- 🎁 Referral program
+- 📱 Mobile responsive optimizations
+
+### Phase 3 (Advanced Features):
+- 📱 Mobile app (React Native)
+- 📞 SMS alerts (Twilio)
+- 🗺️ Market heatmap visualization (D3.js/Plotly)
+- 📊 Advanced charting tools
+- 👥 Copy trading features
+- 🌐 Social trading features
+
+---
+
 ## 🧪 TESTING CHECKLIST
 
 ### Registration & Login
