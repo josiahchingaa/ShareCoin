@@ -16,6 +16,9 @@ import {
   TrendingUp,
   Star,
   Newspaper,
+  Download,
+  Upload,
+  FileText,
 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -76,7 +79,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   ];
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex overflow-x-hidden max-w-[100vw]">
       {/* Sidebar Navigation */}
       <div
         className={`fixed inset-y-0 left-0 z-50 w-64 bg-background-secondary border-r border-border transform transition-transform duration-300 ease-in-out ${
@@ -94,7 +97,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
 
           {/* Navigation Links */}
-          <nav className="flex-1 p-4 space-y-2">
+          <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
             {navLinks.map((link) => {
               const Icon = link.icon;
               const active = link.exact
@@ -117,6 +120,37 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 </Link>
               );
             })}
+
+            {/* Quick Actions */}
+            <div className="pt-4 mt-4 border-t border-border">
+              <p className="px-4 text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-3">
+                Quick Actions
+              </p>
+              <Link
+                href="/dashboard/deposit"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-text-secondary hover:bg-accent-green/10 hover:text-accent-green transition-colors group"
+              >
+                <Download className="w-5 h-5 group-hover:text-accent-green" />
+                Deposit Crypto
+              </Link>
+              <Link
+                href="/dashboard/withdraw"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-text-secondary hover:bg-primary/10 hover:text-primary transition-colors group"
+              >
+                <Upload className="w-5 h-5 group-hover:text-primary" />
+                Withdraw
+              </Link>
+              <Link
+                href="/dashboard/transactions"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-text-secondary hover:bg-purple-500/10 hover:text-purple-400 transition-colors group"
+              >
+                <FileText className="w-5 h-5 group-hover:text-purple-400" />
+                Statements
+              </Link>
+            </div>
           </nav>
 
           {/* Logout Button */}
@@ -133,7 +167,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 min-h-screen">
+      <div className="flex-1 min-h-screen overflow-x-hidden w-full max-w-full">
         {/* Mobile Header */}
         <div className="lg:hidden bg-background-secondary border-b border-border p-4 flex items-center justify-between">
           <img

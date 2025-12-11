@@ -436,7 +436,7 @@ export default function TransactionsPage() {
   return (
     <DashboardLayout>
       {/* ==================== MOBILE VIEW ==================== */}
-      <div className="lg:hidden min-h-screen bg-[#0A0A0A]">
+      <div className="lg:hidden min-h-screen bg-[#0A0A0A] overflow-x-hidden max-w-full">
         {/* Mobile Header */}
         <div className="sticky top-0 z-40 bg-[#0A0A0A]/95 backdrop-blur-xl border-b border-[#1A1A1A]">
           <div className="flex items-center justify-between px-4 h-14">
@@ -940,6 +940,14 @@ export default function TransactionsPage() {
 
       {/* Custom Styles */}
       <style jsx global>{`
+        /* Prevent horizontal scroll on mobile */
+        @media (max-width: 1023px) {
+          html, body {
+            overflow-x: hidden !important;
+            max-width: 100vw !important;
+          }
+        }
+
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
         }
