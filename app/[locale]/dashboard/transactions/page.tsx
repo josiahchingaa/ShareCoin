@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
@@ -21,6 +22,9 @@ import {
   Wallet,
   RefreshCw,
   SlidersHorizontal,
+  Home,
+  History,
+  Settings,
 } from "lucide-react";
 
 interface Transaction {
@@ -704,6 +708,34 @@ export default function TransactionsPage() {
           onClose={() => setSelectedTransaction(null)}
           t={t}
         />
+
+        {/* Mobile Bottom Navigation */}
+        <nav className="fixed bottom-0 left-0 right-0 bg-[#0A0A0A] border-t border-white/[0.08] z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+          <div className="flex items-center justify-around py-2 px-2">
+            <Link href="/dashboard" className="flex flex-col items-center gap-1 py-2 px-4">
+              <Home className="w-5 h-5 text-text-tertiary" />
+              <span className="text-[10px] font-medium text-text-tertiary">Home</span>
+            </Link>
+            <Link href="/dashboard/trades" className="flex flex-col items-center gap-1 py-2 px-4">
+              <TrendingUp className="w-5 h-5 text-text-tertiary" />
+              <span className="text-[10px] font-medium text-text-tertiary">Trades</span>
+            </Link>
+            <Link
+              href="/dashboard/deposit"
+              className="flex items-center justify-center w-12 h-12 -mt-4 rounded-xl bg-gradient-to-br from-accent-green to-emerald-500 shadow-lg shadow-accent-green/30"
+            >
+              <Download className="w-5 h-5 text-background-main" />
+            </Link>
+            <Link href="/dashboard/transactions" className="flex flex-col items-center gap-1 py-2 px-4">
+              <History className="w-5 h-5 text-[#00FF87]" />
+              <span className="text-[10px] font-medium text-[#00FF87]">History</span>
+            </Link>
+            <Link href="/dashboard/settings" className="flex flex-col items-center gap-1 py-2 px-4">
+              <Settings className="w-5 h-5 text-text-tertiary" />
+              <span className="text-[10px] font-medium text-text-tertiary">Settings</span>
+            </Link>
+          </div>
+        </nav>
       </div>
 
       {/* ==================== DESKTOP VIEW ==================== */}
