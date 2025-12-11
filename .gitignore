@@ -49,12 +49,18 @@ prisma/migrations/
 
 # OS
 Thumbs.db
+
+# Sensitive files - NEVER COMMIT
 API_CREDENTIALS.md
 CREDENTIALS_SECURE.md
+DEPLOYMENT_GUIDE.md
 *CREDENTIALS*.md
 *SECRETS*.md
 *.credentials
 *.secrets
+*.key
+id_ed25519
+id_ed25519.pub
 
 # Archives and temp files
 *.tar.gz
@@ -63,5 +69,10 @@ CREDENTIALS_SECURE.md
 archives/
 temp-check/
 bulk/
+coinshares-deploy.tar.gz
+coinshares-fix.tar.gz
+deployment.log
+
+# Windows
 nul
 fix-api-routes.ps1
