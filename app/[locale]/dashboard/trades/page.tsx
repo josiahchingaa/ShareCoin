@@ -41,28 +41,45 @@ interface Trade {
   executedAt: string;
 }
 
-// Asset logos mapping
+// Asset logos mapping - using reliable sources
 const ASSET_LOGOS: { [key: string]: string } = {
-  BTC: "https://cryptologos.cc/logos/bitcoin-btc-logo.png",
-  ETH: "https://cryptologos.cc/logos/ethereum-eth-logo.png",
-  SOL: "https://cryptologos.cc/logos/solana-sol-logo.png",
-  XRP: "https://cryptologos.cc/logos/xrp-xrp-logo.png",
-  ADA: "https://cryptologos.cc/logos/cardano-ada-logo.png",
-  DOGE: "https://cryptologos.cc/logos/dogecoin-doge-logo.png",
-  DOT: "https://cryptologos.cc/logos/polkadot-new-dot-logo.png",
-  MATIC: "https://cryptologos.cc/logos/polygon-matic-logo.png",
-  LINK: "https://cryptologos.cc/logos/chainlink-link-logo.png",
-  UNI: "https://cryptologos.cc/logos/uniswap-uni-logo.png",
-  AVAX: "https://cryptologos.cc/logos/avalanche-avax-logo.png",
-  LTC: "https://cryptologos.cc/logos/litecoin-ltc-logo.png",
-  AAPL: "https://logo.clearbit.com/apple.com",
-  GOOGL: "https://logo.clearbit.com/google.com",
-  MSFT: "https://logo.clearbit.com/microsoft.com",
-  AMZN: "https://logo.clearbit.com/amazon.com",
-  TSLA: "https://logo.clearbit.com/tesla.com",
-  META: "https://logo.clearbit.com/meta.com",
-  NVDA: "https://logo.clearbit.com/nvidia.com",
+  // Crypto - CoinGecko (reliable)
+  BTC: "https://assets.coingecko.com/coins/images/1/small/bitcoin.png",
+  ETH: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
+  BNB: "https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png",
+  XRP: "https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png",
+  SOL: "https://assets.coingecko.com/coins/images/4128/small/solana.png",
+  ADA: "https://assets.coingecko.com/coins/images/975/small/cardano.png",
+  DOGE: "https://assets.coingecko.com/coins/images/5/small/dogecoin.png",
+  DOT: "https://assets.coingecko.com/coins/images/12171/small/polkadot.png",
+  MATIC: "https://assets.coingecko.com/coins/images/4713/small/matic-token-icon.png",
+  LTC: "https://assets.coingecko.com/coins/images/2/small/litecoin.png",
+  AVAX: "https://assets.coingecko.com/coins/images/12559/small/Avalanche_Circle_RedWhite_Trans.png",
+  LINK: "https://assets.coingecko.com/coins/images/877/small/chainlink-new-logo.png",
+  UNI: "https://assets.coingecko.com/coins/images/12504/small/uni.jpg",
+  ATOM: "https://assets.coingecko.com/coins/images/1481/small/cosmos_hub.png",
+  XLM: "https://assets.coingecko.com/coins/images/100/small/Stellar_symbol_black_RGB.png",
+  // Stocks - companieslogo.com (reliable)
+  AAPL: "https://companieslogo.com/img/orig/AAPL-bf1a4314.png",
+  MSFT: "https://companieslogo.com/img/orig/MSFT-a203b22d.png",
+  GOOGL: "https://companieslogo.com/img/orig/GOOG-0ed88f7c.png",
+  AMZN: "https://companieslogo.com/img/orig/AMZN-e9f942e4.png",
+  NVDA: "https://companieslogo.com/img/orig/NVDA-220571ec.png",
+  META: "https://companieslogo.com/img/orig/META-4767da84.png",
+  TSLA: "https://companieslogo.com/img/orig/TSLA-6da550db.png",
+  JPM: "https://companieslogo.com/img/orig/JPM-b4c0be67.png",
+  V: "https://companieslogo.com/img/orig/V-05b48fa6.png",
+  // Commodities & Currencies
+  GOLD: "https://img.icons8.com/color/48/gold-bars.png",
+  SILVER: "https://img.icons8.com/color/48/silver-bars.png",
+  OIL: "https://img.icons8.com/color/48/oil-industry.png",
+  USD: "https://img.icons8.com/color/48/us-dollar-circled.png",
+  EUR: "https://img.icons8.com/color/48/euro-circled.png",
+  GBP: "https://img.icons8.com/color/48/british-pound.png",
 };
+
+// Stock symbols that need special styling (white background, padding)
+const STOCK_SYMBOLS = new Set(['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'JPM', 'V']);
 
 // Skeleton Loading Component
 function TradeSkeleton() {
@@ -199,6 +216,7 @@ function TradeDetailModal({
   const isBuy = trade.tradeType === "BUY";
   const symbol = trade.symbol || trade.assetName?.split(' ')[0] || '??';
   const logoUrl = ASSET_LOGOS[symbol.toUpperCase()];
+  const isStock = STOCK_SYMBOLS.has(symbol.toUpperCase());
 
   return (
     <div className="fixed inset-0 z-50">
@@ -215,9 +233,9 @@ function TradeDetailModal({
 
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center bg-[#1A1A1A] border border-[#262626]">
+          <div className={`w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center border border-[#262626] ${isStock ? 'bg-white p-3' : 'bg-[#1A1A1A]'}`}>
             {logoUrl ? (
-              <img src={logoUrl} alt={symbol} className="w-12 h-12 rounded-full object-cover" />
+              <img src={logoUrl} alt={symbol} className={`rounded-full object-contain ${isStock ? 'w-full h-full' : 'w-12 h-12'}`} />
             ) : (
               <span className="text-2xl font-bold text-[#00FF87]">{symbol.substring(0, 2)}</span>
             )}
@@ -486,7 +504,7 @@ export default function TradesPage() {
   const activeFiltersCount = filterType !== 'all' ? 1 : 0;
 
   return (
-    <DashboardLayout>
+    <DashboardLayout hideMobileHeader>
       {/* ==================== MOBILE VIEW ==================== */}
       <div className="lg:hidden min-h-screen bg-[#0A0A0A] overflow-x-hidden max-w-full pb-[100px]">
         {/* Mobile Header */}
@@ -659,6 +677,7 @@ export default function TradesPage() {
                     const isBuy = trade.tradeType === "BUY";
                     const symbol = trade.symbol || trade.assetName?.split(' ')[0] || '??';
                     const logoUrl = ASSET_LOGOS[symbol.toUpperCase()];
+                    const isStock = STOCK_SYMBOLS.has(symbol.toUpperCase());
 
                     return (
                       <button
@@ -668,9 +687,9 @@ export default function TradesPage() {
                       >
                         <div className="flex items-center gap-3">
                           {/* Asset Icon */}
-                          <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 bg-[#1A1A1A] border border-[#262626]">
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 border border-[#262626] ${isStock ? 'bg-white p-2' : 'bg-[#1A1A1A]'}`}>
                             {logoUrl ? (
-                              <img src={logoUrl} alt={symbol} className="w-8 h-8 rounded-full object-cover" />
+                              <img src={logoUrl} alt={symbol} className={`rounded-full object-contain ${isStock ? 'w-full h-full' : 'w-8 h-8'}`} />
                             ) : (
                               <span className="text-sm font-bold text-[#00FF87]">{symbol.substring(0, 2)}</span>
                             )}
@@ -762,9 +781,9 @@ export default function TradesPage() {
               <Home className="w-5 h-5 text-text-tertiary" />
               <span className="text-[10px] font-medium text-text-tertiary">Home</span>
             </Link>
-            <Link href="/dashboard/trades" className="flex flex-col items-center gap-1 py-2 px-4 rounded-xl bg-[#00FF87]/10">
-              <TrendingUp className="w-5 h-5 text-[#00FF87]" />
-              <span className="text-[10px] font-semibold text-[#00FF87]">Trades</span>
+            <Link href="/dashboard/trades" className="flex flex-col items-center gap-1 py-2 px-4 rounded-xl bg-primary/10">
+              <TrendingUp className="w-5 h-5 text-primary" />
+              <span className="text-[10px] font-semibold text-primary">Trades</span>
             </Link>
             <Link
               href="/dashboard/deposit"
@@ -917,6 +936,7 @@ export default function TradesPage() {
                   filteredTrades.map((trade) => {
                     const symbol = trade.symbol || trade.assetName?.split(' ')[0] || '??';
                     const logoUrl = ASSET_LOGOS[symbol.toUpperCase()];
+                    const isStock = STOCK_SYMBOLS.has(symbol.toUpperCase());
 
                     return (
                       <tr
@@ -952,9 +972,9 @@ export default function TradesPage() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-[#1A1A1A] border border-[#262626] flex items-center justify-center overflow-hidden">
+                            <div className={`w-8 h-8 rounded-full border border-[#262626] flex items-center justify-center overflow-hidden ${isStock ? 'bg-white p-1' : 'bg-[#1A1A1A]'}`}>
                               {logoUrl ? (
-                                <img src={logoUrl} alt={symbol} className="w-6 h-6 rounded-full object-cover" />
+                                <img src={logoUrl} alt={symbol} className={`rounded-full object-contain ${isStock ? 'w-full h-full' : 'w-6 h-6'}`} />
                               ) : (
                                 <span className="text-[#00FF87] font-semibold text-xs">
                                   {symbol.substring(0, 2)}

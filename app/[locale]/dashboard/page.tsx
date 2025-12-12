@@ -64,15 +64,15 @@ const ASSET_LOGOS: Record<string, string> = {
   UNI: "https://assets.coingecko.com/coins/images/12504/small/uni.jpg",
   ATOM: "https://assets.coingecko.com/coins/images/1481/small/cosmos_hub.png",
   XLM: "https://assets.coingecko.com/coins/images/100/small/Stellar_symbol_black_RGB.png",
-  AAPL: "https://logo.clearbit.com/apple.com",
-  MSFT: "https://logo.clearbit.com/microsoft.com",
-  GOOGL: "https://logo.clearbit.com/google.com",
-  AMZN: "https://logo.clearbit.com/amazon.com",
-  NVDA: "https://logo.clearbit.com/nvidia.com",
-  META: "https://logo.clearbit.com/meta.com",
-  TSLA: "https://logo.clearbit.com/tesla.com",
-  JPM: "https://logo.clearbit.com/jpmorganchase.com",
-  V: "https://logo.clearbit.com/visa.com",
+  AAPL: "https://companieslogo.com/img/orig/AAPL-bf1a4314.png",
+  MSFT: "https://companieslogo.com/img/orig/MSFT-a203b22d.png",
+  GOOGL: "https://companieslogo.com/img/orig/GOOG-0ed88f7c.png",
+  AMZN: "https://companieslogo.com/img/orig/AMZN-e9f942e4.png",
+  NVDA: "https://companieslogo.com/img/orig/NVDA-220571ec.png",
+  META: "https://companieslogo.com/img/orig/META-4767da84.png",
+  TSLA: "https://companieslogo.com/img/orig/TSLA-6da550db.png",
+  JPM: "https://companieslogo.com/img/orig/JPM-b4c0be67.png",
+  V: "https://companieslogo.com/img/orig/V-05b48fa6.png",
   GOLD: "https://img.icons8.com/color/48/gold-bars.png",
   SILVER: "https://img.icons8.com/color/48/silver-bars.png",
   OIL: "https://img.icons8.com/color/48/oil-industry.png",
@@ -80,6 +80,9 @@ const ASSET_LOGOS: Record<string, string> = {
   EUR: "https://img.icons8.com/color/48/euro-circled.png",
   GBP: "https://img.icons8.com/color/48/british-pound.png",
 };
+
+// Stock symbols that need special styling (white background, padding)
+const STOCK_SYMBOLS = new Set(['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'JPM', 'V']);
 
 interface PortfolioData {
   totalValue: number;
@@ -335,11 +338,11 @@ export default function DashboardPage() {
   const isDailyPositive = (portfolio?.dailyChange || 0) >= 0;
 
   return (
-    <div className="min-h-screen bg-background-main">
+    <>
       {/* ==================== MOBILE VIEW ==================== */}
-      <div className="lg:hidden pb-[100px]">
-        {/* Premium Mobile Header */}
-        <header className="sticky top-0 z-50 bg-background-main/80 backdrop-blur-xl border-b border-white/[0.06]">
+      <div className="lg:hidden fixed inset-0 flex flex-col bg-background-main">
+        {/* Premium Mobile Header - Fixed at top */}
+        <header className="flex-shrink-0 bg-[#0A0A0A] border-b border-[#1A1A1A] z-50">
           <div className="px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button
@@ -374,8 +377,10 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        {/* Hero Section - Portfolio Value */}
-        <section className={`px-4 pt-6 pb-4 transition-all duration-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          {/* Hero Section - Portfolio Value */}
+          <section className={`px-4 pt-6 pb-4 transition-all duration-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           {/* Greeting */}
           <p className="text-text-tertiary text-sm mb-1">
             {getGreeting()}, {session.user?.name?.split(" ")[0] || "there"}
@@ -584,6 +589,7 @@ export default function DashboardPage() {
                       padding: '8px 12px',
                       boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
                     }}
+                    itemStyle={{ color: '#ffffff' }}
                     labelStyle={{ color: '#808080', fontSize: '11px' }}
                     formatter={(value: number) => [formatCurrency(value), '']}
                   />
@@ -628,6 +634,7 @@ export default function DashboardPage() {
                   const symbol = holding.symbol || holding.asset.split(' ')[0];
                   const logoUrl = ASSET_LOGOS[symbol.toUpperCase()];
                   const isHoldingPositive = holding.change24h >= 0;
+                  const isStock = STOCK_SYMBOLS.has(symbol.toUpperCase());
 
                   return (
                     <div
@@ -636,11 +643,21 @@ export default function DashboardPage() {
                     >
                       <div className="flex items-center gap-3">
                         {logoUrl ? (
-                          <img
-                            src={logoUrl}
-                            alt={holding.asset}
-                            className="w-10 h-10 rounded-full object-cover bg-white/5"
-                          />
+                          isStock ? (
+                            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center p-1.5">
+                              <img
+                                src={logoUrl}
+                                alt={holding.asset}
+                                className="w-full h-full object-contain"
+                              />
+                            </div>
+                          ) : (
+                            <img
+                              src={logoUrl}
+                              alt={holding.asset}
+                              className="w-10 h-10 rounded-full object-cover bg-white/5"
+                            />
+                          )
                         ) : (
                           <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center">
                             <span className="text-primary font-semibold text-sm">
@@ -755,45 +772,8 @@ export default function DashboardPage() {
           )}
         </section>
 
-        {/* Mobile Bottom Navigation */}
-        <nav className="fixed bottom-0 left-0 right-0 bg-[#0A0A0A] border-t border-white/[0.08] z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-          <div className="flex items-center justify-around py-2 px-2">
-            <Link
-              href="/dashboard"
-              className="flex flex-col items-center gap-1 py-2 px-4 rounded-xl bg-primary/10"
-            >
-              <Home className="w-5 h-5 text-primary" />
-              <span className="text-[10px] font-semibold text-primary">Home</span>
-            </Link>
-            <Link
-              href="/dashboard/trades"
-              className="flex flex-col items-center gap-1 py-2 px-4"
-            >
-              <TrendingUp className="w-5 h-5 text-text-tertiary" />
-              <span className="text-[10px] font-medium text-text-tertiary">Trades</span>
-            </Link>
-            <Link
-              href="/dashboard/deposit"
-              className="flex items-center justify-center w-12 h-12 -mt-4 rounded-xl bg-gradient-to-br from-accent-green to-emerald-500 shadow-lg shadow-accent-green/30"
-            >
-              <Download className="w-5 h-5 text-background-main" />
-            </Link>
-            <Link
-              href="/dashboard/transactions"
-              className="flex flex-col items-center gap-1 py-2 px-4"
-            >
-              <History className="w-5 h-5 text-text-tertiary" />
-              <span className="text-[10px] font-medium text-text-tertiary">History</span>
-            </Link>
-            <Link
-              href="/dashboard/settings"
-              className="flex flex-col items-center gap-1 py-2 px-4"
-            >
-              <Settings className="w-5 h-5 text-text-tertiary" />
-              <span className="text-[10px] font-medium text-text-tertiary">Settings</span>
-            </Link>
-          </div>
-        </nav>
+        </div>
+        {/* End Scrollable Content Area */}
 
         {/* Mobile Side Menu */}
         <div
@@ -887,6 +867,34 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Mobile Bottom Navigation - Fixed at bottom of flex container */}
+        <nav className="flex-shrink-0 bg-[#0A0A0A] border-t border-white/[0.08]" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+          <div className="flex items-center justify-around py-2 px-2">
+            <Link href="/dashboard" className="flex flex-col items-center gap-1 py-2 px-4 rounded-xl bg-primary/10">
+              <Home className="w-5 h-5 text-primary" />
+              <span className="text-[10px] font-semibold text-primary">Home</span>
+            </Link>
+            <Link href="/dashboard/trades" className="flex flex-col items-center gap-1 py-2 px-4">
+              <TrendingUp className="w-5 h-5 text-text-tertiary" />
+              <span className="text-[10px] font-medium text-text-tertiary">Trades</span>
+            </Link>
+            <Link
+              href="/dashboard/deposit"
+              className="flex items-center justify-center w-12 h-12 -mt-4 rounded-xl bg-gradient-to-br from-accent-green to-emerald-500 shadow-lg shadow-accent-green/30"
+            >
+              <Download className="w-5 h-5 text-background-main" />
+            </Link>
+            <Link href="/dashboard/transactions" className="flex flex-col items-center gap-1 py-2 px-4">
+              <History className="w-5 h-5 text-text-tertiary" />
+              <span className="text-[10px] font-medium text-text-tertiary">History</span>
+            </Link>
+            <Link href="/dashboard/settings" className="flex flex-col items-center gap-1 py-2 px-4">
+              <Settings className="w-5 h-5 text-text-tertiary" />
+              <span className="text-[10px] font-medium text-text-tertiary">Settings</span>
+            </Link>
+          </div>
+        </nav>
       </div>
 
       {/* ==================== DESKTOP VIEW ==================== */}
@@ -1107,6 +1115,8 @@ export default function DashboardPage() {
                         borderRadius: '12px',
                         padding: '8px 12px',
                       }}
+                      itemStyle={{ color: '#ffffff' }}
+                      labelStyle={{ color: '#808080' }}
                       formatter={(value: number) => [formatCurrency(value), 'Value']}
                     />
                     <Area type="monotone" dataKey="value" stroke="#00FF87" strokeWidth={2} fill="url(#desktopGradient)" />
@@ -1141,12 +1151,17 @@ export default function DashboardPage() {
                             backgroundColor: '#1a1a1a',
                             border: '1px solid #333',
                             borderRadius: '12px',
+                            padding: '10px 14px',
+                            zIndex: 100,
                           }}
+                          wrapperStyle={{ zIndex: 100 }}
+                          itemStyle={{ color: '#ffffff' }}
+                          labelStyle={{ color: '#808080' }}
                           formatter={(value: number, name: string) => [`${value.toFixed(1)}%`, name]}
                         />
                       </PieChart>
                     </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0">
                       <span className="text-text-tertiary text-xs uppercase">Total</span>
                       <span className="text-text-primary text-xl font-bold">
                         {formatCurrency(portfolio?.totalValue || 0, true)}
@@ -1198,12 +1213,19 @@ export default function DashboardPage() {
                       portfolio.holdings.map((holding, index) => {
                         const symbol = holding.symbol || holding.asset.split(' ')[0];
                         const logoUrl = ASSET_LOGOS[symbol.toUpperCase()];
+                        const isStock = STOCK_SYMBOLS.has(symbol.toUpperCase());
                         return (
                           <tr key={index} className="hover:bg-primary/5 transition-colors">
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
                                 {logoUrl ? (
-                                  <img src={logoUrl} alt={holding.asset} className="w-10 h-10 rounded-full object-cover bg-white/10" />
+                                  isStock ? (
+                                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center p-1.5">
+                                      <img src={logoUrl} alt={holding.asset} className="w-full h-full object-contain" />
+                                    </div>
+                                  ) : (
+                                    <img src={logoUrl} alt={holding.asset} className="w-10 h-10 rounded-full object-cover bg-white/10" />
+                                  )
                                 ) : (
                                   <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center">
                                     <span className="text-primary font-semibold text-sm">{holding.asset.substring(0, 2)}</span>
@@ -1260,6 +1282,6 @@ export default function DashboardPage() {
           </div>
         </main>
       </div>
-    </div>
+    </>
   );
 }

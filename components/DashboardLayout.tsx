@@ -23,9 +23,10 @@ import {
 
 interface DashboardLayoutProps {
   children: ReactNode;
+  hideMobileHeader?: boolean;
 }
 
-export default function DashboardLayout({ children }: DashboardLayoutProps) {
+export default function DashboardLayout({ children, hideMobileHeader = false }: DashboardLayoutProps) {
   const { data: session } = useSession();
   const router = useRouter();
   const pathname = usePathname();
@@ -168,20 +169,22 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Main Content */}
       <div className="flex-1 min-h-screen overflow-x-hidden w-full max-w-full">
-        {/* Mobile Header */}
-        <div className="lg:hidden bg-background-secondary border-b border-border p-4 flex items-center justify-between">
-          <img
-            src="https://coinshares.com/icons/coinshares-logo-white.svg"
-            alt="CoinShares"
-            className="h-6 w-auto"
-          />
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="text-text-primary"
-          >
-            {menuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
-        </div>
+        {/* Mobile Header - Hidden when page has custom mobile header */}
+        {!hideMobileHeader && (
+          <div className="lg:hidden bg-[#0A0A0A] border-b border-[#1A1A1A] p-4 flex items-center justify-between">
+            <img
+              src="https://coinshares.com/icons/coinshares-logo-white.svg"
+              alt="CoinShares"
+              className="h-6 w-auto"
+            />
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="text-text-primary"
+            >
+              {menuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
+        )}
 
         {/* Page Content */}
         {children}

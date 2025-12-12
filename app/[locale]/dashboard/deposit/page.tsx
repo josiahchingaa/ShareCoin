@@ -202,7 +202,7 @@ export default function DepositPage() {
       </div>
 
       {/* Header */}
-      <div className="relative bg-background-card/80 backdrop-blur-xl border-b border-white/5">
+      <div className="relative bg-[#0A0A0A]/95 backdrop-blur-xl border-b border-[#1A1A1A]">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
           <div className="flex items-center gap-4">
             <Link

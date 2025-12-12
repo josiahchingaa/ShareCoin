@@ -425,7 +425,7 @@ export default function TransactionsPage() {
 
   if (status === "loading" || loading) {
     return (
-      <DashboardLayout>
+      <DashboardLayout hideMobileHeader>
         <TransactionSkeleton />
       </DashboardLayout>
     );
@@ -438,7 +438,7 @@ export default function TransactionsPage() {
   const activeFiltersCount = (filterType !== 'all' ? 1 : 0) + (filterStatus !== 'all' ? 1 : 0);
 
   return (
-    <DashboardLayout>
+    <DashboardLayout hideMobileHeader>
       {/* ==================== MOBILE VIEW ==================== */}
       <div className="lg:hidden min-h-screen bg-[#0A0A0A] overflow-x-hidden max-w-full pb-[100px]">
         {/* Mobile Header */}
@@ -726,9 +726,9 @@ export default function TransactionsPage() {
             >
               <Download className="w-5 h-5 text-background-main" />
             </Link>
-            <Link href="/dashboard/transactions" className="flex flex-col items-center gap-1 py-2 px-4 rounded-xl bg-[#00FF87]/10">
-              <History className="w-5 h-5 text-[#00FF87]" />
-              <span className="text-[10px] font-semibold text-[#00FF87]">History</span>
+            <Link href="/dashboard/transactions" className="flex flex-col items-center gap-1 py-2 px-4 rounded-xl bg-primary/10">
+              <History className="w-5 h-5 text-primary" />
+              <span className="text-[10px] font-semibold text-primary">History</span>
             </Link>
             <Link href="/dashboard/settings" className="flex flex-col items-center gap-1 py-2 px-4">
               <Settings className="w-5 h-5 text-text-tertiary" />

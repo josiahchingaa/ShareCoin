@@ -354,7 +354,7 @@ export default function SettingsPage() {
 
   if (status === "loading") {
     return (
-      <DashboardLayout>
+      <DashboardLayout hideMobileHeader>
         {/* Mobile Loading */}
         <div className="lg:hidden">
           <MobileSkeleton />
@@ -379,7 +379,7 @@ export default function SettingsPage() {
   ];
 
   return (
-    <DashboardLayout>
+    <DashboardLayout hideMobileHeader>
       {/* ==================== MOBILE VIEW ==================== */}
       <div className="lg:hidden min-h-screen bg-[#0A0A0A] pb-[100px]">
         {/* Mobile Header */}
@@ -816,9 +816,9 @@ export default function SettingsPage() {
               <History className="w-5 h-5 text-text-tertiary" />
               <span className="text-[10px] font-medium text-text-tertiary">History</span>
             </Link>
-            <Link href="/dashboard/settings" className="flex flex-col items-center gap-1 py-2 px-4">
+            <Link href="/dashboard/settings" className="flex flex-col items-center gap-1 py-2 px-4 rounded-xl bg-[#00FF87]/10">
               <Settings className="w-5 h-5 text-[#00FF87]" />
-              <span className="text-[10px] font-medium text-[#00FF87]">Settings</span>
+              <span className="text-[10px] font-semibold text-[#00FF87]">Settings</span>
             </Link>
           </div>
         </nav>
